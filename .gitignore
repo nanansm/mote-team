@@ -1,0 +1,13 @@
+# Secrets & API keys
+.mcp.json
+.env
+.env.local
+
+# macOS
+.DS_Store
+
+# Claude local settings (personal preferences, not shared)
+.claude/settings.local.json
+
+# Output workspace (opsional — uncomment jika tidak ingin commit hasil kerja)
+# workspace/

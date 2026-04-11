@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1080">
+<title>Carousel 1 — Paket Liburan Sekolah | Rancabango</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --teal:       #3D7A8A;
+    --teal-dark:  #1A3F4A;
+    --teal-light: #5A9BAB;
+    --gold:       #C4A35A;
+    --gold-light: #E2C88A;
+    --cream:      #F8F4EC;
+    --white:      #FFFFFF;
+    --text-dark:  #1A2F35;
+    --text-mid:   #4A6370;
+  }
+
+  body {
+    background: #2A2A2A;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+    padding: 40px 20px;
+    font-family: 'Poppins', sans-serif;
+  }
+
+  .label {
+    color: #aaa;
+    font-size: 13px;
+    font-family: monospace;
+    align-self: flex-start;
+    margin-left: calc(50% - 540px);
+  }
+
+  /* ─── SLIDE BASE ─── */
+  .slide {
+    width: 1080px;
+    height: 1080px;
+    position: relative;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  /* ═══════════════════════════════════════════
+     SLIDE 1 — COVER
+  ═══════════════════════════════════════════ */
+  .s1 {
+    background: linear-gradient(160deg, var(--teal-dark) 0%, var(--teal) 55%, #2E6070 100%);
+  }
+
+  /* Tropical leaf SVG background */
+  .s1 .bg-leaves {
+    position: absolute; inset: 0;
+    opacity: 0.12;
+    background-image: url("data:image/svg+xml,%3Csvg width='200' height='200' viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M100 10 Q130 60 100 100 Q70 60 100 10Z' fill='%23C4A35A'/%3E%3Cpath d='M10 100 Q60 130 100 100 Q60 70 10 100Z' fill='%23C4A35A'/%3E%3Cpath d='M190 100 Q140 130 100 100 Q140 70 190 100Z' fill='%23C4A35A'/%3E%3Cpath d='M100 190 Q130 140 100 100 Q70 140 100 190Z' fill='%23C4A35A'/%3E%3C/svg%3E");
+    background-size: 160px 160px;
+  }
+
+  /* Gold corner ornament top-right */
+  .s1 .ornament-tr {
+    position: absolute;
+    top: 0; right: 0;
+    width: 320px; height: 320px;
+    opacity: 0.18;
+    background: radial-gradient(circle at 100% 0%, var(--gold) 0%, transparent 65%);
+  }
+  .s1 .ornament-bl {
+    position: absolute;
+    bottom: 0; left: 0;
+    width: 280px; height: 280px;
+    opacity: 0.14;
+    background: radial-gradient(circle at 0% 100%, var(--gold) 0%, transparent 65%);
+  }
+
+  /* Gold top border strip */
+  .s1 .top-bar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 6px;
+    background: linear-gradient(90deg, var(--gold), var(--gold-light), var(--gold));
+  }
+  .s1 .bottom-bar {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 6px;
+    background: linear-gradient(90deg, var(--gold), var(--gold-light), var(--gold));
+  }
+
+  /* Logo area */
+  .s1 .logo-area {
+    position: absolute;
+    top: 54px; left: 0; right: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  .s1 .logo-mark {
+    width: 58px; height: 58px;
+    border: 2.5px solid var(--gold);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(196,163,90,0.12);
+  }
+  .s1 .logo-mark svg { width: 32px; height: 32px; }
+  .s1 .logo-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 15px;
+    letter-spacing: 4px;
+    color: var(--gold-light);
+    text-transform: uppercase;
+  }
+
+  /* Main content */
+  .s1 .main-content {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 860px;
+    text-align: center;
+  }
+  .s1 .promo-badge {
+    display: inline-block;
+    background: var(--gold);
+    color: var(--teal-dark);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    padding: 8px 28px;
+    border-radius: 2px;
+    margin-bottom: 32px;
+  }
+  .s1 .headline-small {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px;
+    font-weight: 400;
+    font-style: italic;
+    color: var(--gold-light);
+    letter-spacing: 1px;
+    margin-bottom: 16px;
+  }
+  .s1 .headline-main {
+    font-family: 'Playfair Display', serif;
+    font-size: 80px;
+    font-weight: 900;
+    color: var(--white);
+    line-height: 1.0;
+    margin-bottom: 12px;
+  }
+  .s1 .headline-main span { color: var(--gold); }
+  .s1 .headline-year {
+    font-family: 'Playfair Display', serif;
+    font-size: 52px;
+    font-weight: 400;
+    color: rgba(255,255,255,0.5);
+    letter-spacing: 6px;
+    margin-bottom: 36px;
+  }
+  .s1 .gold-divider {
+    width: 120px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    margin: 0 auto 28px;
+  }
+  .s1 .tagline {
+    font-size: 20px;
+    font-weight: 300;
+    color: rgba(255,255,255,0.82);
+    letter-spacing: 1px;
+    line-height: 1.6;
+  }
+  .s1 .tagline strong { color: var(--gold-light); font-weight: 600; }
+
+  /* Bottom info */
+  .s1 .bottom-info {
+    position: absolute;
+    bottom: 48px;
+    left: 0; right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 40px;
+  }
+  .s1 .info-pill {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(196,163,90,0.3);
+    border-radius: 40px;
+    padding: 10px 22px;
+  }
+  .s1 .info-pill .icon { font-size: 18px; }
+  .s1 .info-pill .text { font-size: 13px; color: rgba(255,255,255,0.85); font-weight: 500; }
+
+  /* Slide number */
+  .slide-num {
+    position: absolute;
+    bottom: 52px; right: 52px;
+    font-size: 12px;
+    color: rgba(255,255,255,0.35);
+    letter-spacing: 2px;
+  }
+
+  /* ═══════════════════════════════════════════
+     SLIDES 2–4 — PACKAGE CARDS
+  ═══════════════════════════════════════════ */
+  .s-pkg {
+    background: var(--cream);
+  }
+  .s-pkg .top-accent {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 8px;
+    background: linear-gradient(90deg, var(--teal-dark), var(--teal), var(--teal-dark));
+  }
+  .s-pkg .side-accent {
+    position: absolute;
+    top: 0; bottom: 0; left: 0;
+    width: 8px;
+    background: linear-gradient(180deg, var(--teal-dark), var(--teal), var(--teal-dark));
+  }
+  .s-pkg .header-zone {
+    position: absolute;
+    top: 8px; left: 8px; right: 0;
+    height: 260px;
+    background: linear-gradient(135deg, var(--teal-dark) 0%, var(--teal) 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    overflow: hidden;
+  }
+  .s-pkg .header-zone::after {
+    content: '';
+    position: absolute;
+    bottom: -40px; left: -40px;
+    width: 200px; height: 200px;
+    background: rgba(196,163,90,0.12);
+    border-radius: 50%;
+  }
+  .s-pkg .pkg-icon {
+    font-size: 52px;
+    line-height: 1;
+    position: relative; z-index: 1;
+  }
+  .s-pkg .pkg-type {
+    font-family: 'Playfair Display', serif;
+    font-size: 14px;
+    letter-spacing: 4px;
+    color: var(--gold);
+    text-transform: uppercase;
+    position: relative; z-index: 1;
+  }
+  .s-pkg .pkg-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 44px;
+    font-weight: 700;
+    color: var(--white);
+    text-align: center;
+    position: relative; z-index: 1;
+    line-height: 1.1;
+  }
+  .s-pkg .pkg-sub {
+    font-size: 16px;
+    color: rgba(255,255,255,0.7);
+    position: relative; z-index: 1;
+  }
+
+  .s-pkg .price-zone {
+    position: absolute;
+    top: 268px; left: 8px; right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    padding: 28px 0 18px;
+    border-bottom: 1.5px solid rgba(196,163,90,0.25);
+  }
+  .s-pkg .price-label {
+    font-size: 13px;
+    color: var(--text-mid);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .s-pkg .price-main {
+    font-family: 'Playfair Display', serif;
+    font-size: 68px;
+    font-weight: 900;
+    color: var(--teal-dark);
+    line-height: 1;
+  }
+  .s-pkg .price-main sup { font-size: 28px; vertical-align: super; }
+  .s-pkg .price-note {
+    font-size: 14px;
+    color: var(--text-mid);
+    margin-top: 4px;
+  }
+
+  .s-pkg .includes {
+    position: absolute;
+    top: 470px; left: 8px; right: 0;
+    padding: 0 80px;
+  }
+  .s-pkg .includes-title {
+    font-size: 12px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--gold);
+    font-weight: 600;
+    margin-bottom: 20px;
+  }
+  .s-pkg .include-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 16px;
+  }
+  .s-pkg .include-item .dot {
+    width: 8px; height: 8px;
+    background: var(--teal);
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 6px;
+  }
+  .s-pkg .include-item .text {
+    font-size: 17px;
+    color: var(--text-dark);
+    line-height: 1.5;
+    font-weight: 400;
+  }
+  .s-pkg .include-item .text strong { color: var(--teal-dark); font-weight: 600; }
+
+  .s-pkg .cta-strip {
+    position: absolute;
+    bottom: 0; left: 8px; right: 0;
+    height: 92px;
+    background: var(--teal-dark);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+  }
+  .s-pkg .cta-strip .wa-btn {
+    background: #25D366;
+    color: white;
+    font-size: 16px;
+    font-weight: 700;
+    padding: 14px 36px;
+    border-radius: 40px;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .s-pkg .cta-strip .wa-num {
+    font-size: 15px;
+    color: rgba(255,255,255,0.7);
+  }
+  .s-pkg .pkg-counter {
+    position: absolute;
+    top: 16px; right: 24px;
+    font-size: 12px;
+    color: rgba(255,255,255,0.5);
+    letter-spacing: 2px;
+    z-index: 10;
+  }
+
+  /* ═══════════════════════════════════════════
+     SLIDE 5 — CTA
+  ═══════════════════════════════════════════ */
+  .s5 {
+    background: var(--teal-dark);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .s5 .bg-radial {
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 50% 40%, rgba(196,163,90,0.15) 0%, transparent 65%);
+  }
+  .s5 .top-bar { position: absolute; top: 0; left: 0; right: 0; height: 6px; background: linear-gradient(90deg, var(--gold), var(--gold-light), var(--gold)); }
+  .s5 .bottom-bar { position: absolute; bottom: 0; left: 0; right: 0; height: 6px; background: linear-gradient(90deg, var(--gold), var(--gold-light), var(--gold)); }
+
+  .s5 .urgency-badge {
+    background: #E05C5C;
+    color: white;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    padding: 8px 28px;
+    border-radius: 2px;
+    margin-bottom: 36px;
+    position: relative; z-index: 1;
+  }
+  .s5 .cta-headline {
+    font-family: 'Playfair Display', serif;
+    font-size: 64px;
+    font-weight: 900;
+    color: var(--white);
+    text-align: center;
+    line-height: 1.1;
+    position: relative; z-index: 1;
+    margin-bottom: 12px;
+  }
+  .s5 .cta-headline span { color: var(--gold); }
+  .s5 .cta-sub {
+    font-size: 20px;
+    color: rgba(255,255,255,0.65);
+    text-align: center;
+    margin-bottom: 50px;
+    position: relative; z-index: 1;
+  }
+
+  .s5 .gold-divider {
+    width: 100px; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    margin: 0 auto 48px;
+    position: relative; z-index: 1;
+  }
+
+  .s5 .wa-block {
+    position: relative; z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 48px;
+  }
+  .s5 .wa-block .wa-cta-btn {
+    background: #25D366;
+    color: white;
+    font-size: 22px;
+    font-weight: 700;
+    padding: 20px 64px;
+    border-radius: 60px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    letter-spacing: 0.5px;
+  }
+  .s5 .wa-block .wa-number {
+    font-size: 16px;
+    color: rgba(255,255,255,0.6);
+    letter-spacing: 2px;
+  }
+
+  .s5 .stats-row {
+    position: relative; z-index: 1;
+    display: flex;
+    gap: 0;
+    border: 1px solid rgba(196,163,90,0.3);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .s5 .stat-item {
+    padding: 20px 48px;
+    text-align: center;
+    border-right: 1px solid rgba(196,163,90,0.3);
+  }
+  .s5 .stat-item:last-child { border-right: none; }
+  .s5 .stat-num {
+    font-family: 'Playfair Display', serif;
+    font-size: 34px;
+    font-weight: 700;
+    color: var(--gold);
+    display: block;
+  }
+  .s5 .stat-lbl {
+    font-size: 12px;
+    color: rgba(255,255,255,0.55);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .s5 .ig-handle {
+    position: absolute;
+    bottom: 32px;
+    font-size: 14px;
+    color: rgba(255,255,255,0.4);
+    letter-spacing: 2px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ─────────────────────────────────────────
+     SLIDE 1 — COVER
+───────────────────────────────────────── -->
+<div class="label">carousel-1-slide-1 | 1080×1080px | screenshot this div</div>
+<div class="slide s1">
+  <div class="bg-leaves"></div>
+  <div class="ornament-tr"></div>
+  <div class="ornament-bl"></div>
+  <div class="top-bar"></div>
+  <div class="bottom-bar"></div>
+
+  <!-- Logo -->
+  <div class="logo-area">
+    <div class="logo-mark">
+      <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M16 2 L28 9 L28 23 L16 30 L4 23 L4 9 Z" stroke="#C4A35A" stroke-width="1.5" fill="none"/>
+        <path d="M16 8 L22 12 L22 20 L16 24 L10 20 L10 12 Z" fill="rgba(196,163,90,0.25)"/>
+        <circle cx="16" cy="16" r="3" fill="#C4A35A"/>
+      </svg>
+    </div>
+    <div class="logo-name">Rancabango Hotel &amp; Resort</div>
+  </div>
+
+  <!-- Main -->
+  <div class="main-content">
+    <div class="promo-badge">✦ Promo Spesial ✦</div>
+    <div class="headline-small">Liburan Keluarga Tak Terlupakan</div>
+    <div class="headline-main">Liburan<br><span>Sekolah</span></div>
+    <div class="headline-year">JULI 2026</div>
+    <div class="gold-divider"></div>
+    <div class="tagline">
+      Kenangan Selamanya &nbsp;·&nbsp; <strong>Rasakan Bali, Tanpa Harus Jauh</strong>
+    </div>
+  </div>
+
+  <!-- Bottom pills -->
+  <div class="bottom-info">
+    <div class="info-pill">
+      <span class="icon">🏊</span>
+      <span class="text">Kids Pool</span>
+    </div>
+    <div class="info-pill">
+      <span class="icon">🌿</span>
+      <span class="text">View Gunung</span>
+    </div>
+    <div class="info-pill">
+      <span class="icon">🏨</span>
+      <span class="text">Nuansa Bali</span>
+    </div>
+    <div class="info-pill">
+      <span class="icon">📍</span>
+      <span class="text">2 Jam dari Bandung</span>
+    </div>
+  </div>
+
+  <div class="slide-num">1 / 5</div>
+</div>
+
+
+<!-- ─────────────────────────────────────────
+     SLIDE 2 — PAKET KELUARGA 2D1N
+───────────────────────────────────────── -->
+<div class="label">carousel-1-slide-2 | 1080×1080px</div>
+<div class="slide s-pkg">
+  <div class="top-accent"></div>
+  <div class="side-accent"></div>
+  <div class="pkg-counter">2 / 5</div>
+
+  <div class="header-zone">
+    <div class="pkg-type">Paket Utama</div>
+    <div class="pkg-icon">🏡</div>
+    <div class="pkg-name">Family<br>2D1N</div>
+    <div class="pkg-sub">Cocok untuk keluarga 2 dewasa + 2 anak</div>
+  </div>
+
+  <div class="price-zone">
+    <div class="price-label">Mulai Dari</div>
+    <div class="price-main"><sup>Rp</sup>899<span style="font-size:36px; color:#4A6370;">.000</span></div>
+    <div class="price-note">per malam · sudah termasuk sarapan</div>
+  </div>
+
+  <div class="includes">
+    <div class="includes-title">✦ sudah termasuk ✦</div>
+    <div class="include-item"><div class="dot"></div><div class="text"><strong>Kamar Deluxe</strong> dengan view gunung atau taman</div></div>
+    <div class="include-item"><div class="dot"></div><div class="text"><strong>Sarapan keluarga</strong> untuk 2 dewasa + 2 anak</div></div>
+    <div class="include-item"><div class="dot"></div><div class="text"><strong>Akses penuh</strong> kolam renang & kids pool seharian</div></div>
+    <div class="include-item"><div class="dot"></div><div class="text"><strong>Aktivitas anak</strong> terjadwal setiap hari jam 10.00 WIB</div></div>
+    <div class="include-item"><div class="dot"></div><div class="text"><strong>Late check-out</strong> sampai jam 14.00 WIB (request)</div></div>
+  </div>
+
+  <div class="cta-strip">
+    <div class="wa-btn">
+      <span>📲</span> Pesan via WhatsApp
+    </div>
+    <div class="wa-num">+62 896 6215 8784</div>
+  </div>
+</div>
+
+
+<!-- ─────────────────────────────────────────
+     SLIDE 3 — PAKET WEEKEND PLUS
+───────────────────────────────────────── -->
+<div class="label">carousel-1-slide-3 | 1080×1080px</div>
+<div class="slide s-pkg">
+  <div class="top-accent"></div>
+  <div class="side-accent"></div>
+  <div class="pkg-counter">3 / 5</div>
+
+  <!-- Popular badge -->
+  <div style="position:absolute; top:16px; left:60px; background:var(--gold); color:var(--teal-dark); font-size:12px; font-weight:700; letter-spacing:2px; text-transform:uppercase; padding:6px 18px; border-radius:2px; z-index:10;">⭐ Paling Populer</div>
+
+  <div class="header-zone" style="background: linear-gradient(135deg, #1A3F4A 0%, #2E6870 50%, #3D7A8A 100%);">
+    <div class="pkg-type">Best Value</div>
+    <div class="pkg-icon">🌟</div>
+    <div class="pkg-name">Weekend<br>Plus</div>
+    <div class="pkg-sub">2D1N + Aktivitas Premium</div>
+  </div>
+
+  <div class="price-zone">
+    <div class="price-label">Harga Spesial Liburan Sekolah</div>
+    <div class="price-main"><sup>Rp</sup>1,2<span style="font-size:36px; color:#4A6370;">Jt</span></div>
+    <div class="price-note">per malam · all-inclusive · hemat 20% vs harga normal</div>
+  </div>
+
+  <div class="includes">
+    <div class="includes-title">✦ termasuk ekstra ✦</div>
+    <div class="include-item"><div class="dot" style="background:var(--gold)"></div><div class="text">Semua benefit Paket Family +</div></div>
+    <div class="include-item"><div class="dot" style="background:var(--gold)"></div><div class="text"><strong>BBQ dinner</strong> di area outdoor dengan view malam</div></div>
+    <div class="include-item"><div class="dot" style="background:var(--gold)"></div><div class="text"><strong>Welcome drink</strong> satu set untuk seluruh keluarga</div></div>
+    <div class="include-item"><div class="dot" style="background:var(--gold)"></div><div class="text"><strong>1x foto keluarga</strong> di spot terbaik resort (cetak 4R)</div></div>
+    <div class="include-item"><div class="dot" style="background:var(--gold)"></div><div class="text"><strong>Diskon 10%</strong> untuk F&amp;B selama menginap</div></div>
+  </div>
+
+  <div class="cta-strip">
+    <div class="wa-btn">
+      <span>📲</span> Pesan via WhatsApp
+    </div>
+    <div class="wa-num">+62 896 6215 8784</div>
+  </div>
+</div>
+
+
+<!-- ─────────────────────────────────────────
+     SLIDE 4 — PAKET EXTENDED 3D2N
+───────────────────────────────────────── -->
+<div class="label">carousel-1-slide-4 | 1080×1080px</div>
+<div class="slide s-pkg">
+  <div class="top-accent" style="background: linear-gradient(90deg, var(--gold), var(--gold-light), var(--gold));"></div>
+  <div class="side-accent" style="background: linear-gradient(180deg, var(--gold), var(--gold-light), var(--gold));"></div>
+  <div class="pkg-counter">4 / 5</div>
+
+  <div class="header-zone" style="background: linear-gradient(135deg, #2A1A00 0%, #5A3D1A 50%, #7A5530 100%);">
+    <div class="pkg-type" style="color:var(--gold-light);">Long Stay</div>
+    <div class="pkg-icon">👑</div>
+    <div class="pkg-name" style="color:var(--gold-light);">Extended<br>3D2N</div>
+    <div class="pkg-sub">Makin lama, makin hemat</div>
+  </div>
+
+  <div class="price-zone">
+    <div class="price-label">Total Paket</div>
+    <div class="price-main" style="color:var(--gold);"><sup style="font-size:24px; color:var(--text-mid);">Rp</sup>2,1<span style="font-size:36px; color:#4A6370;">Jt</span></div>
+    <div class="price-note">untuk 3 hari 2 malam · hemat Rp 300.000 vs booking terpisah</div>
+  </div>
+
+  <div class="includes">
+    <div class="includes-title" style="color:var(--gold);">✦ bonus khusus long stay ✦</div>
+    <div class="include-item"><div class="dot" style="background:var(--gold)"></div><div class="text">Semua benefit Weekend Plus ×2 malam +</div></div>
+    <div class="include-item"><div class="dot" style="background:var(--gold)"></div><div class="text"><strong>Upgrade kamar</strong> ke Suite (subject to availability)</div></div>
+    <div class="include-item"><div class="dot" style="background:var(--gold)"></div><div class="text"><strong>1x city tour Garut</strong> dengan driver resort (half day)</div></div>
+    <div class="include-item"><div class="dot" style="background:var(--gold)"></div><div class="text"><strong>Laundry gratis</strong> hingga 5 kg per malam</div></div>
+    <div class="include-item"><div class="dot" style="background:var(--gold)"></div><div class="text"><strong>Priority booking</strong> untuk Agustus 2026</div></div>
+  </div>
+
+  <div class="cta-strip" style="background:#2A1A00;">
+    <div class="wa-btn" style="background:var(--gold); color:var(--teal-dark);">
+      <span>📲</span> Pesan via WhatsApp
+    </div>
+    <div class="wa-num">+62 896 6215 8784</div>
+  </div>
+</div>
+
+
+<!-- ─────────────────────────────────────────
+     SLIDE 5 — CTA
+───────────────────────────────────────── -->
+<div class="label">carousel-1-slide-5 | 1080×1080px</div>
+<div class="slide s5">
+  <div class="bg-radial"></div>
+  <div class="top-bar"></div>
+  <div class="bottom-bar"></div>
+
+  <div class="urgency-badge">⚡ Slot Terbatas — Pesan Sekarang</div>
+
+  <div class="cta-headline">
+    Liburan Sekolah<br>Terbaik<br><span>Dimulai di Sini</span>
+  </div>
+  <div class="cta-sub">
+    Garut · Nuansa Bali · Fasilitas Keluarga Lengkap<br>
+    16 Juni – 31 Juli 2026
+  </div>
+
+  <div class="gold-divider"></div>
+
+  <div class="wa-block">
+    <div class="wa-cta-btn">
+      <span>📲</span> Hubungi via WhatsApp
+    </div>
+    <div class="wa-number">+62 896-6215-8784</div>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-item">
+      <span class="stat-num">2 Jam</span>
+      <span class="stat-lbl">dari Bandung</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-num">3 Paket</span>
+      <span class="stat-lbl">tersedia</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-num">⭐ 4.8</span>
+      <span class="stat-lbl">rating tamu</span>
+    </div>
+  </div>
+
+  <div class="ig-handle">@rancabango_hotel</div>
+  <div class="slide-num" style="position:absolute; bottom:32px; right:52px; font-size:12px; color:rgba(255,255,255,0.3); letter-spacing:2px;">5 / 5</div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     PETUNJUK KONVERSI KE JPG
+═══════════════════════════════════════════ -->
+<div style="width:1080px; background:#1a1a1a; border:1px solid #444; border-radius:8px; padding:32px; color:#ccc; font-size:14px; line-height:1.8; font-family:monospace;">
+  <div style="color:#C4A35A; font-size:16px; margin-bottom:16px;">📖 CARA CONVERT KE JPG</div>
+  <div><strong style="color:white;">Opsi A — Browser Screenshot:</strong></div>
+  <div>1. Buka file ini di Chrome / Safari (zoom 100%)</div>
+  <div>2. Klik kanan pada slide → "Inspect Element"</div>
+  <div>3. Di DevTools → highlight div.slide → klik titik 3 → "Capture node screenshot"</div>
+  <div>4. Simpan setiap slide sebagai carousel-1-slide-1.jpg dst.</div>
+  <br>
+  <div><strong style="color:white;">Opsi B — Node/Puppeteer (otomatis):</strong></div>
+  <div style="color:#888;">npx puppeteer-screenshot --url carousel-1.html --selector .slide --output carousel-1-slide-{n}.jpg</div>
+  <br>
+  <div><strong style="color:white;">Opsi C — macOS:</strong></div>
+  <div>Buka di Safari → File → Export as PDF → import ke Figma/Preview → export tiap halaman</div>
+</div>
+
+</body>
+</html>
