@@ -1,10 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Anti-stuck: standalone build for Easypanel/Docker (PRD 5.1).
-  output: "standalone",
-  // Pin tracing to this repo so standalone output is correct despite the
-  // stray lockfile in the home directory.
+  // Deployed via Dockerfile (Node 20) running `next start` with full
+  // node_modules — no standalone output needed. Anti-stuck (PRD 5.1) is
+  // handled by the pg pool + /api/health self-ping, not the build mode.
   outputFileTracingRoot: import.meta.dirname,
 };
 
