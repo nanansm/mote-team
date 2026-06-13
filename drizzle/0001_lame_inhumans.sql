@@ -1,0 +1,1 @@
+ALTER TABLE "moteteam"."client" ADD COLUMN "windsor_account_id" text;

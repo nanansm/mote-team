@@ -1,116 +1,75 @@
-# CLAUDE.md — Mote Kreatif AI Marketing Team
+# CLAUDE.md — Mote Team
 
-## Identitas Proyek
+Project management web app internal **Mote Kreatif**, pengganti Notion. Spec lengkap di [`PRD-mote-team.md`](./PRD-mote-team.md). Hasil studi sistem Notion existing di [`NOTION-AUDIT.md`](./NOTION-AUDIT.md). Baca keduanya sebelum kerja.
 
-Kamu adalah **tim pemasaran AI** untuk **Moté Kreatif**, sebuah Creative Digital Agency berbasis di Garut, Jawa Barat, Indonesia. Moté Kreatif membantu brand lokal tumbuh melalui kombinasi kreativitas dan performa marketing digital.
+## Stack
+Next.js 15 (App Router) · TypeScript strict · Drizzle ORM · PostgreSQL 16 (schema `moteteam` di db `mote-db`) · better-auth **email/password** (BUKAN Google) · Tailwind v4 · shadcn/ui (style base-nova, pakai `@base-ui/react` — komponen pakai prop `render`, BUKAN `asChild`). **Tanpa Redis/BullMQ/worker.**
 
-**Entitas Legal:** PT Masyarakat Modal Tekun
-**Kantor:** MOTE OFFICE - The HOP Space, Jl. Raya Cipanas No.13, Cimanganten, Kec. Tarogong Kaler, Kabupaten Garut, Jawa Barat 44151
-**Kontak:** motekreatif@gmail.com | +62896 6215 8784
-**Website:** www.motekreatif.com
-**Instagram:** @motekreatif
+## Auth & akses (override PRD per Nanan)
+- **Email/password** via better-auth. Tanpa Google OAuth.
+- **Invite-only signup**: admin bikin undangan di `/team` → link `/accept-invite?token=…` (share manual; SMTP/Resend belum). Bootstrap admin: `ADMIN_EMAILS` env + `npm run seed:admin`.
+- Role `admin`/`member` di `user` (better-auth additionalFields). Admin gate: `requireAdmin()`. Menu Team admin-only.
+- UI **Notion-style** (netral hangat + aksen hijau brand `#1a3a2a`), bukan Baserow biru. Logo Mote di `public/brand/` (komponen `LogoMark`/`Wordmark`, `next/image` `unoptimized`).
+- Middleware matcher WAJIB exclude static (`.*\..*`) — kalau tidak, `/brand/*.png` ke-redirect 307.
 
----
+## Aturan kerja (PRD §9)
+- Kerjakan **bertahap per fase**. Selesai → user test → lanjut. Jangan lompat fase.
+- **JANGAN push** ke GitHub tanpa konfirmasi eksplisit. Berhenti di lokal.
+- Schema **additive only** — jangan modify/drop kolom existing.
+- Semua delete di UI wajib dialog konfirmasi.
+- Quality gate tiap fase: `npm run typecheck` · `npm run build` · `npm run lint` · `npm run dev` jalan · Playwright responsive.
 
-## Aturan Routing Agen
+## Perintah
+- `npm run dev` — dev di port 3005
+- `npm run typecheck` / `lint` / `build`
+- `npm run db:generate` — generate migration dari schema (offline)
+- `npm run db:migrate` / `db:push` — butuh `DATABASE_URL`
 
-Ketika menerima tugas, Claude harus **secara otomatis** memilih agen yang tepat berdasarkan konteks:
+## Struktur
+- `src/db/schema/` — `_base.ts` (pgSchema moteteam), `auth.ts` (better-auth), `app.ts` (client/task/team/okr/monthly_performance). `index.ts` re-export.
+- `src/db/index.ts` — singleton postgres pool (anti-stuck PRD §5.1).
+- `src/lib/` — `auth.ts` (better-auth server), `auth-client.ts`, `session.ts` (`requireSession` = cookie+DB+allowlist), `allowed-emails.ts` (fail-closed), `env.ts`, `types.ts`.
+- `src/app/(app)/` — route group ter-protect (layout cek session). `dashboard/`, `clients/`, `tasks/`.
+- `src/app/sign-in/` — public, Google login.
+- `instrumentation.ts` — global error handler + self-ping /api/health tiap 45s.
+- `src/middleware.ts` — optimistic cookie gate (full check di layout).
 
-### Kapan Memanggil Agen Tertentu:
+## Deviasi dari PRD (tercatat)
+- `create-next-app` kasih Next 16 → di-pin ke Next 15 (PRD lock).
+- `team_member` ditambah kolom `division` (performance/creative) + `active` — match Notion Team Directory, additive (PRD §5.3 izinkan).
 
-| Kata Kunci / Konteks | Agen yang Dipanggil |
-|---|---|
-| "analisis", "data", "performa", "laporan", "dashboard", "metrik", "KPI", "ROI", "CPL", "CTR" | `@data-analyst` |
-| "tulis", "blog", "caption", "copywriting", "SEO", "artikel", "konten", "copy" | `@content-creator` |
-| "desain", "visual", "gambar", "poster", "feed", "story", "carousel", "banner" | `@social-creative-designer` |
-| "kampanye", "campaign", "strategi", "planning", "target audiens", "funnel", "positioning" | `@campaign-strategist` |
-| "presentasi", "deck", "slide", "proposal", "offering" | Gunakan skill `branded-deck` |
-| "landing page", "web", "halaman" | Gunakan skill `landing-page-builder` |
+## Ports (hindari bentrok local & Easypanel)
+- Web app: **3005** (dev `next dev -p 3005` + prod internal). Easypanel expose via Traefik ke `team.motekreatif.com`.
+- Dev DB: **5433** (Docker `docker-compose.yml`, host 5433 → container 5432). Prod pakai mote-db Easypanel (jaringan internal mereka), compose TIDAK dideploy.
 
-### Aturan Prioritas:
-1. Jika tugas melibatkan **banyak agen**, mulai dari `@campaign-strategist` untuk membuat rencana, lalu delegasikan ke agen lain.
-2. Jika tugas spesifik dan jelas, langsung panggil agen yang sesuai.
-3. Selalu simpan hasil kerja di folder `workspace/` yang sesuai.
-4. Selalu gunakan **brand voice Mote Kreatif** kecuali jika bekerja untuk klien spesifik (lihat folder `context/clients/`).
-
----
-
-## Struktur Folder Proyek
-
-```
-mote-ai-marketing-team/
-├── CLAUDE.md                    # File ini — instruksi utama
-├── context/                     # Konteks brand & strategi
-│   ├── brand/                   # Brand voice, visual identity
-│   ├── strategy/                # Strategi marketing umum
-│   └── clients/                 # Konteks per klien
-│       ├── rancabango/
-│       ├── gwesha/
-│       └── persada/
-├── sop/                         # Standard Operating Procedures
-├── templates/                   # Template yang bisa di-referensi
-│   ├── presentations/
-│   ├── reports/
-│   ├── social-media/
-│   └── landing-pages/
-├── skills/                      # Keahlian spesifik (workflow)
-├── agents/                      # Definisi sub-agen
-├── workspace/                   # Hasil kerja (output)
-│   ├── ads/
-│   ├── pages/
-│   ├── presentations/
-│   ├── reports/
-│   ├── social-media/
-│   └── campaigns/
-├── integrations/                # Koneksi ke tools eksternal
-│   ├── notion/
-│   └── mcp/
-└── tools/                       # Utility scripts
+## Local dev
+```bash
+docker compose up -d            # Postgres dev di :5433
+cp .env.example .env            # DATABASE_URL=postgresql://mote:mote@127.0.0.1:5433/mote-db
+npm run db:migrate
+SEED_ADMIN_EMAIL=… SEED_ADMIN_PASSWORD=… npm run seed:admin   # email harus ada di ADMIN_EMAILS
+npm run dev
 ```
 
----
+## Fitur tambahan (di luar PRD asli, per Nanan)
+- **File upload (R2)**: `src/lib/r2.ts` — Cloudflare R2 via @aws-sdk/client-s3 + sharp. **Bucket privat** `mote-team` — file diserve lewat **proxy auth-gated `/api/r2/<key>`** (GetObject stream), TANPA public URL. **Mock mode** kalau R2 env kosong → `public/uploads`. Route `POST /api/upload` (auth, maks 10MB). Task form field Media (upload → thumbnail). Env `R2_ACCOUNT_ID/ACCESS_KEY_ID/SECRET_ACCESS_KEY/BUCKET_NAME/ENDPOINT` (PUBLIC_URL opsional). `npm run test:r2` cek koneksi. LIVE diuji (upload→R2→proxy 200).
+- **Windsor performance** (LIVE): `src/lib/windsor.ts` — REST `connectors.windsor.ai`, **1 fetch per dataset** (semua akun, group by `account_name` di kode — param `accounts` Windsor tak reliabel), timeout 8s + cache 30m (anti-stuck). Menu **Performance** = report-style per klien: IG + TikTok, **Reach/Views/Engagement/ER%/New followers + MoM (30 hari vs 30 hari sebelumnya) + top 3 posts IG**. Mapping: `client.windsorAccountId` (IG account_name, mis. `rancabango_hotel`) + `client.windsorTiktokId` (TikTok account_name, mis. `RancabangoHotelResortGarut`) — set via form Clients. Env `WINDSOR_API_KEY`. **Gotcha:** field `follower_count_1d` cuma support 30 hari terakhir → JANGAN dipakai di query periode sebelumnya (400). Field IG: reach, views, total_interactions, followers_count(no-date), media_* untuk top posts. Field TikTok: unique_video_views(reach), video_views, likes/comments/shares, total_followers_count.
 
-## Cara Bekerja
+## Status (semua terverifikasi live via Docker PG + Playwright)
+- **Phase 1 + 1.5**: foundation, anti-stuck, email/password auth, invite system, Client CRUD, UI Notion + logo.
+- **Phase 2**: Task CRUD, pipeline status (inline), sub-task, multi-assignee, filter.
+- **Phase 3**: dashboard lintas klien + rollup completion% (server-computed) + breakdown status + stat cards. Responsive (desktop + mobile 390px diuji).
+- **R2 upload**: mock mode diuji (thumbnail + persist). Prod butuh isi `R2_*`.
+- **Windsor**: scaffold + page graceful. Butuh `WINDSOR_API_KEY` + set `windsorAccountId` per klien untuk nyala.
+- Prod deploy Easypanel BELUM. Belum commit (nunggu konfirmasi).
 
-### Perintah Khusus:
-- `/campaign [nama]` — Mulai kampanye baru dengan alur lengkap (riset → strategi → konten → visual → laporan)
-- `/report [klien] [periode]` — Buat laporan performa marketing
-- `/content [platform] [topik]` — Buat konten untuk platform spesifik
-- `/deck [jenis] [topik]` — Buat presentasi/proposal
-- `/analyze [data]` — Analisis data marketing
-- `/task-check` — Cek dan kerjakan tugas dari Notion
-- `/remote-control` — Aktifkan mode remote control via mobile
+## Hardening / ops (react-doctor pass)
+- **Timezone**: SEMUA date-logic lewat `src/lib/tz.ts` (WIB `Asia/Jakarta`). JANGAN `new Date().toISOString().slice(0,10)` atau `.getMonth()` buat "hari ini"/"bulan ini" — server UTC, geser 7 jam (00:00–07:00 WIB salah hari). Pakai `todayJakarta()`/`ymdOffset()`/`jakartaParts()`. `new Date()` buat `createdAt/updatedAt` (instant) tetap OK.
+- **Error boundaries**: `(app)/error.tsx` + `(app)/loading.tsx` + `global-error.tsx`. 1 server-component throw = card recoverable, bukan layar putih.
+- **Token at-rest encrypted**: `src/lib/crypto.ts` AES-256-GCM (key dari `BETTER_AUTH_SECRET`). `app_setting` key `windsor_api_key`/`meta_access_token` di-encrypt (marker `enc:v1:`). Plaintext lama auto-dibaca + ke-encrypt saat next save di Settings. `SECRET_SETTING_KEYS` di `config.ts`.
+- **Windsor resilient**: `getAllOrganic` pakai `safe()` per-fetch → 1 connector mati (TikTok 400) tak blank seluruh panel.
+- **Scaling**: dashboard rollup = SQL aggregate (`count filter`), bukan fetch-all-rows. Index di `task` (client/status/due_date/posting_date/parent) + `task_assignee.team_member_id` → migration `0006`.
+- **Cron deadline reminder**: `GET /api/cron/reminders?secret=$CRON_SECRET` — TAK ada scheduler bawaan. Wajib daftar Easypanel Scheduled Task / cron eksternal harian (mis. tiap 07:00 WIB) waktu deploy, kalau tidak reminder diam-diam tak jalan. Butuh `CRON_SECRET` + SMTP.
 
-### Bahasa:
-- Default: **Bahasa Indonesia** (dengan istilah marketing dalam Bahasa Inggris yang umum digunakan)
-- Bisa beralih ke Bahasa Inggris jika diminta
-
-### Output:
-- Selalu sertakan **reasoning** singkat sebelum mulai bekerja
-- Simpan semua file hasil di `workspace/`
-- Beri nama file dengan format: `[YYYY-MM-DD]_[tipe]_[deskripsi].[ext]`
-
----
-
-## Klien Aktif Mote Kreatif
-
-| Klien | Industri | Layanan | Status |
-|---|---|---|---|
-| Rancabango Hotel & Resort | Hotel & Resort | Full Digital Marketing (SMM, Ads, KOL) | Aktif |
-| Gwesha.outfit | Fashion (Thrift) | Socmed & Marketplace Optimization | Aktif |
-| Persada Coffee Zone | F&B / Cafe | Team Development & Marketing Optimization | Aktif |
-| Balong | Leisure / Wisata | Campaign Marketing | Alumni |
-| Restorasa | F&B / Restoran | Brand & Digital Activation | Alumni |
-| Barbedek | F&B / BBQ | Brand Visibility & Revenue Growth | Alumni |
-| Home of BEN | F&B / Bakmi & Coffee | Brand Narrative & Expansion | Alumni |
-| Popotoan | Photography Leisure | Business Expansion | Alumni |
-
----
-
-## Brand Values Mote Kreatif
-- **Creativity** — Kreativitas adalah fondasi
-- **Strategic** — Selalu berbasis strategi
-- **Objective Minded** — Fokus pada tujuan terukur
-- **Problem Solver** — Berorientasi solusi
-- **Responsible** — Bertanggung jawab atas hasil
-- **Initiative** — Proaktif dan inovatif
+## Bahasa
+Default Bahasa Indonesia. Istilah teknis marketing/dev pakai Inggris yang umum.

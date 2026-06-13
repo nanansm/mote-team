@@ -1,0 +1,1 @@
+ALTER TABLE "moteteam"."team_member" ADD COLUMN "email" text;

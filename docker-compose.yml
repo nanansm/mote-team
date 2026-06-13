@@ -1,0 +1,19 @@
+# Local development database only. Production uses the existing mote-db on
+# Easypanel — this compose file is NOT deployed. Host port 5433 avoids clashing
+# with any local Postgres on 5432.
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: mote-team-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mote
+      POSTGRES_PASSWORD: mote
+      POSTGRES_DB: mote-db
+    ports:
+      - "5433:5432"
+    volumes:
+      - mote-pg-data:/var/lib/postgresql/data
+
+volumes:
+  mote-pg-data:
