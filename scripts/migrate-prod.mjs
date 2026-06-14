@@ -35,6 +35,21 @@ try {
   } else {
     console.log(`[migrate-prod] data present (clients=${n}) → skip seed.`);
   }
+
+  // One-time June full-content backfill (status/due/caption/links/content from
+  // Notion). Guarded by an app_setting flag so it runs exactly once and never
+  // overwrites later in-app edits. Statements are UPDATE ... WHERE id=…, so a
+  // re-run (if the flag were cleared) only re-sets those same June rows.
+  const flag = await sql`select 1 from moteteam.app_setting where key = 'june_content_v1'`;
+  if (flag.length === 0 && fs.existsSync("scripts/june-content.sql")) {
+    console.log("[migrate-prod] applying June content backfill…");
+    await sql.unsafe(fs.readFileSync("scripts/june-content.sql", "utf8"));
+    await sql`insert into moteteam.app_setting (key, value) values ('june_content_v1', 'done') on conflict (key) do nothing`;
+    const [c] = await sql`select count(*)::int n from moteteam.task where content is not null`;
+    console.log(`[migrate-prod] June content applied (tasks with content=${c.n}).`);
+  } else {
+    console.log("[migrate-prod] June content already applied → skip.");
+  }
 } catch (err) {
   console.error("[migrate-prod] migration/seed failed:", err);
   process.exit(1);
