@@ -50,6 +50,19 @@ try {
   } else {
     console.log("[migrate-prod] June content already applied → skip.");
   }
+
+  // One-time cleanup of duplicate team_member rows from the old accept-invite
+  // flow (link real member to its auth user, drop the orphan dupes).
+  const dflag = await sql`select 1 from moteteam.app_setting where key = 'dedupe_members_v1'`;
+  if (dflag.length === 0 && fs.existsSync("scripts/dedupe-members.sql")) {
+    console.log("[migrate-prod] de-duplicating team members…");
+    await sql.unsafe(fs.readFileSync("scripts/dedupe-members.sql", "utf8"));
+    await sql`insert into moteteam.app_setting (key, value) values ('dedupe_members_v1', 'done') on conflict (key) do nothing`;
+    const [c] = await sql`select count(*)::int n from moteteam.team_member`;
+    console.log(`[migrate-prod] members de-duped (total team_member=${c.n}).`);
+  } else {
+    console.log("[migrate-prod] member dedupe already applied → skip.");
+  }
 } catch (err) {
   console.error("[migrate-prod] migration/seed failed:", err);
   process.exit(1);

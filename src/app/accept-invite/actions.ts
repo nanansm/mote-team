@@ -42,9 +42,25 @@ export async function acceptInvite(input: {
       .update(invitation)
       .set({ acceptedAt: new Date() })
       .where(eq(invitation.id, inv.id));
-    await db
-      .insert(teamMember)
-      .values({ authUserId: res.user.id, name, active: true });
+
+    // Link to the EXISTING team member for this invited email (so the person
+    // keeps their code/role/assigned tasks). Only create a fresh profile if no
+    // matching member exists — avoids duplicate rows.
+    const [existing] = await db
+      .select({ id: teamMember.id })
+      .from(teamMember)
+      .where(eq(teamMember.email, inv.email))
+      .limit(1);
+    if (existing) {
+      await db
+        .update(teamMember)
+        .set({ authUserId: res.user.id, active: true, updatedAt: new Date() })
+        .where(eq(teamMember.id, existing.id));
+    } else {
+      await db
+        .insert(teamMember)
+        .values({ authUserId: res.user.id, name, email: inv.email, active: true });
+    }
     return { ok: true };
   } catch (e) {
     const msg =

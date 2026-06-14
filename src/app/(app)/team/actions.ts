@@ -3,10 +3,10 @@
 import { randomBytes } from "crypto";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
+import { eq, or } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { invitation, teamMember } from "@/db/schema";
+import { invitation, teamMember, user } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { env } from "@/lib/env";
 import { requireAdmin } from "@/lib/session";
@@ -170,4 +170,65 @@ export async function sendMemberReset(id: string): Promise<SimpleResult> {
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Gagal kirim reset." };
   }
+}
+
+/** Permanently delete a member (and their login account, if any). Their task
+ *  assignments are removed (FK cascade); created-by references are nulled. */
+export async function deleteMember(id: string): Promise<SimpleResult> {
+  const session = await requireAdmin();
+  const [m] = await db
+    .select({ authUserId: teamMember.authUserId, email: teamMember.email })
+    .from(teamMember)
+    .where(eq(teamMember.id, id))
+    .limit(1);
+  if (!m) return { ok: false, error: "Anggota tidak ditemukan." };
+
+  // Guard: don't let an admin delete their own profile.
+  if (m.authUserId && m.authUserId === session.user.id)
+    return { ok: false, error: "Tidak bisa menghapus akun sendiri." };
+
+  await db.delete(teamMember).where(eq(teamMember.id, id));
+  // Best-effort: remove the linked login account too (orphan otherwise).
+  const targetEmail = m.email?.toLowerCase();
+  try {
+    if (m.authUserId) await db.delete(user).where(eq(user.id, m.authUserId));
+    else if (targetEmail) await db.delete(user).where(eq(user.email, targetEmail));
+  } catch {
+    /* leave the auth account if FK constraints block it */
+  }
+  revalidatePath("/team");
+  return { ok: true };
+}
+
+/** Promote/demote a member's login account between admin and member. */
+export async function setMemberRole(
+  id: string,
+  role: "admin" | "member",
+): Promise<SimpleResult> {
+  await requireAdmin();
+  const [m] = await db
+    .select({ authUserId: teamMember.authUserId, email: teamMember.email })
+    .from(teamMember)
+    .where(eq(teamMember.id, id))
+    .limit(1);
+  if (!m) return { ok: false, error: "Anggota tidak ditemukan." };
+  const email = m.email?.toLowerCase() ?? null;
+  if (!m.authUserId && !email)
+    return { ok: false, error: "Anggota belum punya akun." };
+
+  const res = await db
+    .update(user)
+    .set({ role })
+    .where(
+      m.authUserId && email
+        ? or(eq(user.id, m.authUserId), eq(user.email, email))
+        : m.authUserId
+          ? eq(user.id, m.authUserId)
+          : eq(user.email, email!),
+    )
+    .returning({ id: user.id });
+  if (res.length === 0)
+    return { ok: false, error: "Akun belum aktif — anggota belum menerima undangan." };
+  revalidatePath("/team");
+  return { ok: true };
 }

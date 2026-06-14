@@ -22,7 +22,7 @@ export default async function TeamPage() {
       })
       .from(teamMember)
       .orderBy(asc(teamMember.code), asc(teamMember.name)),
-    db.select({ email: user.email }).from(user),
+    db.select({ email: user.email, role: user.role }).from(user),
     db
       .select({ email: invitation.email, token: invitation.token })
       .from(invitation)
@@ -30,18 +30,22 @@ export default async function TeamPage() {
       .orderBy(desc(invitation.createdAt)),
   ]);
 
-  const accounts = new Set(users.map((u) => u.email.toLowerCase()));
+  const roleByEmail = new Map(
+    users.map((u) => [u.email.toLowerCase(), u.role ?? "member"]),
+  );
   const pendingByEmail = new Map(
     pending.map((p) => [p.email.toLowerCase(), p.token]),
   );
 
   const directory: DirectoryMember[] = members.map((m) => {
     const email = m.email?.toLowerCase() ?? null;
-    const hasAccount = email ? accounts.has(email) : false;
+    const accountRole = email ? (roleByEmail.get(email) ?? null) : null;
+    const hasAccount = accountRole !== null;
     const pendingToken = email ? (pendingByEmail.get(email) ?? null) : null;
     return {
       ...m,
       account: hasAccount ? "active" : pendingToken ? "pending" : "none",
+      accountRole: accountRole === "admin" ? "admin" : hasAccount ? "member" : null,
       inviteLink: pendingToken
         ? `${env.BETTER_AUTH_URL}/accept-invite?token=${pendingToken}`
         : null,

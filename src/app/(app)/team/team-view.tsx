@@ -10,11 +10,22 @@ import {
   Plus,
   Power,
   Send,
+  Shield,
+  ShieldCheck,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/page-header";
 import { UserAvatar } from "@/components/user-avatar";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,9 +35,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import {
+  deleteMember,
   inviteMember,
   sendMemberReset,
   setMemberActive,
+  setMemberRole,
 } from "./actions";
 import { MemberFormDialog } from "./member-form-dialog";
 
@@ -40,6 +53,7 @@ export type DirectoryMember = {
   reportsTo: string | null;
   active: boolean;
   account: "active" | "pending" | "none";
+  accountRole: "admin" | "member" | null;
   inviteLink: string | null;
 };
 
@@ -68,6 +82,7 @@ export function TeamView({ directory }: { directory: DirectoryMember[] }) {
   const router = useRouter();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<DirectoryMember | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<DirectoryMember | null>(null);
   const [pending, start] = useTransition();
 
   function openAdd() {
@@ -105,6 +120,26 @@ export function TeamView({ directory }: { directory: DirectoryMember[] }) {
       const r = await setMemberActive(m.id, !m.active);
       if (r.ok) {
         toast.success(m.active ? "Anggota dinonaktifkan" : "Anggota diaktifkan");
+        router.refresh();
+      } else toast.error(r.error);
+    });
+  }
+  function changeRole(m: DirectoryMember, role: "admin" | "member") {
+    start(async () => {
+      const r = await setMemberRole(m.id, role);
+      if (r.ok) {
+        toast.success(role === "admin" ? "Dijadikan admin" : "Dijadikan member");
+        router.refresh();
+      } else toast.error(r.error);
+    });
+  }
+  function confirmDelete() {
+    if (!deleteTarget) return;
+    start(async () => {
+      const r = await deleteMember(deleteTarget.id);
+      if (r.ok) {
+        toast.success("Anggota dihapus");
+        setDeleteTarget(null);
         router.refresh();
       } else toast.error(r.error);
     });
@@ -160,6 +195,11 @@ export function TeamView({ directory }: { directory: DirectoryMember[] }) {
             </div>
 
             <div className="flex items-center justify-between gap-2 sm:justify-end">
+              {m.accountRole === "admin" && (
+                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                  Admin
+                </span>
+              )}
               <AccountBadge status={m.account} />
               <DropdownMenu>
                 <DropdownMenuTrigger
@@ -191,15 +231,34 @@ export function TeamView({ directory }: { directory: DirectoryMember[] }) {
                       Reset password (email)
                     </DropdownMenuItem>
                   )}
+                  {m.account === "active" && m.accountRole !== "admin" && (
+                    <DropdownMenuItem disabled={pending} onClick={() => changeRole(m, "admin")}>
+                      <ShieldCheck className="size-4" />
+                      Jadikan admin
+                    </DropdownMenuItem>
+                  )}
+                  {m.account === "active" && m.accountRole === "admin" && (
+                    <DropdownMenuItem disabled={pending} onClick={() => changeRole(m, "member")}>
+                      <Shield className="size-4" />
+                      Jadikan member
+                    </DropdownMenuItem>
+                  )}
 
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
-                    variant={m.active ? "destructive" : "default"}
                     disabled={pending}
                     onClick={() => toggleActive(m)}
                   >
                     <Power className="size-4" />
                     {m.active ? "Nonaktifkan" : "Aktifkan"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    variant="destructive"
+                    disabled={pending}
+                    onClick={() => setDeleteTarget(m)}
+                  >
+                    <Trash2 className="size-4" />
+                    Hapus permanen
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -213,6 +272,41 @@ export function TeamView({ directory }: { directory: DirectoryMember[] }) {
         onOpenChange={setFormOpen}
         member={editing}
       />
+
+      <Dialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(o) => !o && setDeleteTarget(null)}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Hapus anggota?</DialogTitle>
+            <DialogDescription>
+              <span className="font-medium text-foreground">
+                {deleteTarget?.name}
+              </span>{" "}
+              akan dihapus permanen — termasuk akun login-nya (jika ada) dan
+              keterkaitannya dengan task yang di-assign. Tindakan ini tidak bisa
+              dibatalkan.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteTarget(null)}
+              disabled={pending}
+            >
+              Batal
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDelete}
+              disabled={pending}
+            >
+              {pending ? "Menghapus…" : "Hapus permanen"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
