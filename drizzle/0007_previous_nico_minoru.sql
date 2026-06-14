@@ -1,0 +1,1 @@
+ALTER TABLE "moteteam"."task" ADD COLUMN "content" text;

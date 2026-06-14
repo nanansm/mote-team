@@ -100,6 +100,8 @@ export const task = moteteam.table("task", {
   postingDate: date("posting_date"),
   typeContent: typeContent("type_content"),
   caption: text("caption"),
+  // Full task brief / page body from Notion (slide scripts, references, notes).
+  content: text("content"),
   linkMateri: text("link_materi"),
   linkOutput: text("link_output"),
   linkIg: text("link_ig"),

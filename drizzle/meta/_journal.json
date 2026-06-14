@@ -50,6 +50,13 @@
       "when": 1781360662162,
       "tag": "0006_modern_jimmy_woo",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1781401438959,
+      "tag": "0007_previous_nico_minoru",
+      "breakpoints": true
     }
   ]
 }

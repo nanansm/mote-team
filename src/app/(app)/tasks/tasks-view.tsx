@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
+  Building2,
   CalendarDays,
   Columns3,
   CornerDownRight,
@@ -56,9 +57,10 @@ import { TaskFormDialog } from "./task-form-dialog";
 import { TaskDetailSheet } from "./task-detail-sheet";
 import { TasksBoard } from "./tasks-board";
 import { TasksCalendar } from "./tasks-calendar";
+import { TasksByClient } from "./tasks-by-client";
 import type { ClientOption, MemberOption, TaskRow } from "./types";
 
-type View = "table" | "board" | "calendar";
+type View = "table" | "board" | "calendar" | "client";
 
 const ALL = "all";
 
@@ -158,7 +160,8 @@ export function TasksView({
     const c = searchParams.get("client");
     if (c) setClientFilter(c);
     const v = searchParams.get("view");
-    if (v === "board" || v === "calendar" || v === "table") setView(v);
+    if (v === "board" || v === "calendar" || v === "table" || v === "client")
+      setView(v);
     if (searchParams.get("new")) {
       setEditing(null);
       setFormOpen(true);
@@ -322,6 +325,7 @@ export function TasksView({
               ["table", LayoutList, "Tabel"],
               ["board", Columns3, "Board"],
               ["calendar", CalendarDays, "Kalender"],
+              ["client", Building2, "Klien"],
             ] as [View, typeof LayoutList, string][]
           ).map(([v, Icon, label]) => (
             <button
@@ -346,6 +350,9 @@ export function TasksView({
       {view === "board" && <TasksBoard tasks={scoped} onOpen={openDetail} />}
       {view === "calendar" && (
         <TasksCalendar tasks={scoped} onOpen={openDetail} />
+      )}
+      {view === "client" && (
+        <TasksByClient tasks={scoped} clients={clients} onOpen={openDetail} />
       )}
 
       {view === "table" && (
