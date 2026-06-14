@@ -1,0 +1,22 @@
+name: Daily deadline reminders
+
+# Calls the in-app reminder job once a day so assignees get an email about
+# tasks due tomorrow / overdue. 00:00 UTC = 07:00 WIB (Asia/Jakarta).
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger reminder endpoint
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          code=$(curl -s -o /tmp/out -w "%{http_code}" --max-time 60 \
+            "https://team.motekreatif.com/api/cron/reminders?secret=${CRON_SECRET}")
+          echo "HTTP $code"
+          cat /tmp/out
+          test "$code" = "200"
