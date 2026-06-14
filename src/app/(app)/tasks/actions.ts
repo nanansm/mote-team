@@ -1,10 +1,17 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq, inArray } from "drizzle-orm";
+import { desc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
-import { client, task, taskAssignee, teamMember, user } from "@/db/schema";
+import {
+  client,
+  task,
+  taskAssignee,
+  taskComment,
+  teamMember,
+  user,
+} from "@/db/schema";
 import { env } from "@/lib/env";
 import { sendMail, taskAssignedEmail } from "@/lib/mailer";
 import { TASK_STATUS_MAP, type TaskStatus } from "@/lib/task-meta";
@@ -194,6 +201,101 @@ export async function updateTaskStatus(
 export async function deleteTask(id: string): Promise<ActionResult> {
   await requireSession();
   await db.delete(task).where(eq(task.id, id));
+  revalidatePath("/tasks");
+  return { ok: true };
+}
+
+/* ------------------------------------------------- command palette search */
+
+export type TaskOption = { id: string; title: string; clientName: string | null };
+
+/** Lightweight task list for the command palette — fetched lazily on first open. */
+export async function listTaskOptions(): Promise<TaskOption[]> {
+  await requireSession();
+  return db
+    .select({
+      id: task.id,
+      title: task.title,
+      clientName: client.name,
+    })
+    .from(task)
+    .leftJoin(client, eq(task.clientId, client.id))
+    .orderBy(desc(task.createdAt))
+    .limit(500);
+}
+
+/* --------------------------------------------------------------- comments */
+
+export type TaskCommentRow = {
+  id: string;
+  body: string;
+  createdAt: string; // ISO
+  authorName: string;
+  canDelete: boolean;
+};
+
+export async function listComments(taskId: string): Promise<TaskCommentRow[]> {
+  const session = await requireSession();
+  const isAdmin = session.user.role === "admin";
+  const rows = await db
+    .select({
+      id: taskComment.id,
+      body: taskComment.body,
+      createdAt: taskComment.createdAt,
+      authorUserId: taskComment.authorUserId,
+      authorName: user.name,
+    })
+    .from(taskComment)
+    .leftJoin(user, eq(taskComment.authorUserId, user.id))
+    .where(eq(taskComment.taskId, taskId))
+    .orderBy(desc(taskComment.createdAt));
+
+  return rows.map((r) => ({
+    id: r.id,
+    body: r.body,
+    createdAt: r.createdAt.toISOString(),
+    authorName: r.authorName ?? "Anggota",
+    canDelete: isAdmin || r.authorUserId === session.user.id,
+  }));
+}
+
+export async function addComment(
+  taskId: string,
+  body: string,
+): Promise<ActionResult> {
+  const session = await requireSession();
+  if (!z.uuid().safeParse(taskId).success)
+    return { ok: false, error: "Task tidak valid" };
+  const trimmed = body.trim();
+  if (!trimmed) return { ok: false, error: "Komentar kosong" };
+  if (trimmed.length > 4000)
+    return { ok: false, error: "Komentar terlalu panjang" };
+  // Guard against a deleted task → clean error instead of an opaque FK throw.
+  const [exists] = await db
+    .select({ id: task.id })
+    .from(task)
+    .where(eq(task.id, taskId))
+    .limit(1);
+  if (!exists) return { ok: false, error: "Task sudah dihapus" };
+  await db
+    .insert(taskComment)
+    .values({ taskId, body: trimmed, authorUserId: session.user.id });
+  revalidatePath("/tasks");
+  return { ok: true };
+}
+
+export async function deleteComment(id: string): Promise<ActionResult> {
+  const session = await requireSession();
+  const isAdmin = session.user.role === "admin";
+  const [row] = await db
+    .select({ authorUserId: taskComment.authorUserId })
+    .from(taskComment)
+    .where(eq(taskComment.id, id))
+    .limit(1);
+  if (!row) return { ok: false, error: "Komentar tak ditemukan" };
+  if (!isAdmin && row.authorUserId !== session.user.id)
+    return { ok: false, error: "Tidak boleh menghapus komentar ini" };
+  await db.delete(taskComment).where(eq(taskComment.id, id));
   revalidatePath("/tasks");
   return { ok: true };
 }

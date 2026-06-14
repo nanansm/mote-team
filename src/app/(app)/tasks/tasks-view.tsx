@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Building2,
@@ -148,7 +148,7 @@ export function TasksView({
   const [pending, startTransition] = useTransition();
 
   const [clientFilter, setClientFilter] = useState(ALL);
-  const [statusFilter, setStatusFilter] = useState<string>("in_progress");
+  const [statusFilter, setStatusFilter] = useState<string>(ALL);
   const [assigneeFilter, setAssigneeFilter] = useState(ALL);
   const [view, setView] = useState<View>("table");
   const [detail, setDetail] = useState<TaskRow | null>(null);
@@ -156,6 +156,9 @@ export function TasksView({
 
   // Deep-link support: ?client=, ?view=, ?new=1 (e.g. from Clients / command palette).
   const searchParams = useSearchParams();
+  // Track the ?task= id we've already auto-opened so a router.refresh() (which
+  // hands down a fresh `tasks` array identity) does not re-open a closed sheet.
+  const openedTaskRef = useRef<string | null>(null);
   useEffect(() => {
     const c = searchParams.get("client");
     if (c) setClientFilter(c);
@@ -166,14 +169,32 @@ export function TasksView({
       setEditing(null);
       setFormOpen(true);
     }
-  }, [searchParams]);
+    const taskId = searchParams.get("task");
+    if (taskId && openedTaskRef.current !== taskId) {
+      const found = tasks.find((t) => t.id === taskId);
+      if (found) {
+        setDetail(found);
+        setDetailOpen(true);
+        openedTaskRef.current = taskId;
+      }
+    }
+  }, [searchParams, tasks]);
 
   function openDetail(t: TaskRow) {
     setDetail(t);
     setDetailOpen(true);
   }
 
-  // Board & calendar group by status/date themselves → only apply client + assignee.
+  // Closing the detail clears the ?task= deep-link so it won't re-open on refresh.
+  function handleDetailOpenChange(open: boolean) {
+    setDetailOpen(open);
+    if (!open && searchParams.get("task")) {
+      openedTaskRef.current = null;
+      router.replace("/tasks");
+    }
+  }
+
+  // All views apply client + assignee + status filters.
   const scoped = useMemo(() => {
     return tasks.filter((t) => {
       if (clientFilter !== ALL && t.clientId !== clientFilter) return false;
@@ -182,18 +203,12 @@ export function TasksView({
         !t.assignees.some((a) => a.id === assigneeFilter)
       )
         return false;
+      if (statusFilter !== ALL && t.status !== statusFilter) return false;
       return true;
     });
-  }, [tasks, clientFilter, assigneeFilter]);
+  }, [tasks, clientFilter, assigneeFilter, statusFilter]);
 
-  // Table additionally applies the status filter.
-  const filtered = useMemo(
-    () =>
-      statusFilter === ALL
-        ? scoped
-        : scoped.filter((t) => t.status === statusFilter),
-    [scoped, statusFilter],
-  );
+  const filtered = scoped;
 
   // Build a 2-level ordering: roots (in view), each followed by its sub-tasks.
   const ordered = useMemo(() => {
@@ -270,7 +285,7 @@ export function TasksView({
             ))}
           </SelectContent>
         </Select>
-        {view === "table" && (
+        {(
           <Select
             value={statusFilter}
             onValueChange={(v) => setStatusFilter(v ?? ALL)}
@@ -477,7 +492,7 @@ export function TasksView({
       <TaskDetailSheet
         task={detail}
         open={detailOpen}
-        onOpenChange={setDetailOpen}
+        onOpenChange={handleDetailOpenChange}
         onEdit={(t) => {
           setDetailOpen(false);
           openEdit(t);

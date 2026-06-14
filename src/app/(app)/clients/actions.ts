@@ -14,6 +14,7 @@ const clientInput = z.object({
   logoUrl: z.string().trim().nullish(),
   windsorAccountId: z.string().trim().nullish(),
   windsorTiktokId: z.string().trim().nullish(),
+  notes: z.string().trim().max(10000, "Catatan terlalu panjang").nullish(),
 });
 
 export type ClientInput = z.infer<typeof clientInput>;
@@ -31,6 +32,7 @@ function toValues(input: ClientInput) {
     logoUrl: input.logoUrl ? input.logoUrl : null,
     windsorAccountId: input.windsorAccountId ? input.windsorAccountId : null,
     windsorTiktokId: input.windsorTiktokId ? input.windsorTiktokId : null,
+    notes: input.notes ? input.notes : null,
   };
 }
 

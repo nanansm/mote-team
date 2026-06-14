@@ -6,6 +6,7 @@ import {
   Building2,
   CalendarDays,
   Columns3,
+  ListChecks,
   Plus,
   Search,
   type LucideIcon,
@@ -17,6 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { listTaskOptions, type TaskOption } from "@/app/(app)/tasks/actions";
 import { visibleNav } from "./nav-items";
 
 type Item = { group: string; label: string; icon: LucideIcon; href: string };
@@ -31,6 +33,10 @@ export function CommandPalette({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
+  // Tasks are fetched lazily the first time the palette opens (not eagerly in
+  // the layout on every navigation).
+  const [tasks, setTasks] = useState<TaskOption[]>([]);
+  const [tasksLoaded, setTasksLoaded] = useState(false);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -49,8 +55,17 @@ export function CommandPalette({
   }, []);
 
   useEffect(() => {
-    if (!open) setQ("");
-  }, [open]);
+    if (!open) {
+      setQ("");
+      return;
+    }
+    if (!tasksLoaded) {
+      setTasksLoaded(true);
+      listTaskOptions()
+        .then(setTasks)
+        .catch(() => setTasksLoaded(false));
+    }
+  }, [open, tasksLoaded]);
 
   const items = useMemo<Item[]>(
     () => [
@@ -73,15 +88,30 @@ export function CommandPalette({
     [clients, isAdmin],
   );
 
+  // Task items only surface when searching (avoid dumping every task).
+  const taskItems = useMemo<Item[]>(
+    () =>
+      tasks.map((t) => ({
+        group: "Task",
+        label: t.clientName ? `${t.title} · ${t.clientName}` : t.title,
+        icon: ListChecks,
+        href: `/tasks?task=${t.id}`,
+      })),
+    [tasks],
+  );
+
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    return needle
-      ? items.filter((i) => i.label.toLowerCase().includes(needle))
-      : items;
-  }, [items, q]);
+    if (!needle) return items;
+    const base = items.filter((i) => i.label.toLowerCase().includes(needle));
+    const matchedTasks = taskItems
+      .filter((i) => i.label.toLowerCase().includes(needle))
+      .slice(0, 8);
+    return [...base, ...matchedTasks];
+  }, [items, taskItems, q]);
 
   const groups = useMemo(() => {
-    const order = ["Aksi cepat", "Navigasi", "Klien"];
+    const order = ["Aksi cepat", "Navigasi", "Klien", "Task"];
     return order
       .map((g) => ({ group: g, items: filtered.filter((i) => i.group === g) }))
       .filter((g) => g.items.length > 0);
@@ -109,7 +139,7 @@ export function CommandPalette({
             onKeyDown={(e) => {
               if (e.key === "Enter" && filtered[0]) go(filtered[0].href);
             }}
-            placeholder="Cari klien, navigasi, atau aksi cepat…"
+            placeholder="Cari task, klien, navigasi, atau aksi cepat…"
             className="h-12 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
         </div>

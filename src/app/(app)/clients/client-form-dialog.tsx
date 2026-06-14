@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -48,6 +49,7 @@ export function ClientFormDialog({ open, onOpenChange, client }: Props) {
   const [logoUrl, setLogoUrl] = useState("");
   const [windsorAccountId, setWindsorAccountId] = useState("");
   const [windsorTiktokId, setWindsorTiktokId] = useState("");
+  const [notes, setNotes] = useState("");
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -60,6 +62,7 @@ export function ClientFormDialog({ open, onOpenChange, client }: Props) {
     setLogoUrl(client?.logoUrl ?? "");
     setWindsorAccountId(client?.windsorAccountId ?? "");
     setWindsorTiktokId(client?.windsorTiktokId ?? "");
+    setNotes(client?.notes ?? "");
   }, [open, client]);
 
   async function handleLogo(e: React.ChangeEvent<HTMLInputElement>) {
@@ -91,6 +94,7 @@ export function ClientFormDialog({ open, onOpenChange, client }: Props) {
       logoUrl,
       windsorAccountId,
       windsorTiktokId,
+      notes,
     };
     startTransition(async () => {
       const result = isEdit
@@ -108,7 +112,7 @@ export function ClientFormDialog({ open, onOpenChange, client }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>{isEdit ? "Edit Klien" : "Tambah Klien"}</DialogTitle>
@@ -243,6 +247,20 @@ export function ClientFormDialog({ open, onOpenChange, client }: Props) {
               Untuk menarik performa organic di menu Performance (account_name
               persis dari Windsor).
             </p>
+
+            <div className="space-y-2">
+              <Label htmlFor="notes">Catatan untuk tim</Label>
+              <Textarea
+                id="notes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Brief, link Drive/brand guide, tone of voice, dll. Boleh tempel link."
+                rows={4}
+              />
+              <p className="text-xs text-muted-foreground">
+                Link otomatis bisa diklik saat ditampilkan ke tim.
+              </p>
+            </div>
           </div>
 
           <DialogFooter>

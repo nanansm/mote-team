@@ -57,6 +57,13 @@
       "when": 1781401438959,
       "tag": "0007_previous_nico_minoru",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1781430138098,
+      "tag": "0008_material_vin_gonzales",
+      "breakpoints": true
     }
   ]
 }

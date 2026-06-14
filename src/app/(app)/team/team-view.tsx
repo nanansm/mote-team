@@ -161,12 +161,12 @@ export function TeamView({ directory }: { directory: DirectoryMember[] }) {
         </Button>
       </PageHeader>
 
-      <div className="grid gap-3">
+      <div className="grid grid-cols-1 gap-3">
         {directory.map((m) => (
           <div
             key={m.id}
             className={cn(
-              "flex flex-col gap-3 rounded-2xl border bg-card p-4 shadow-card sm:flex-row sm:items-center sm:justify-between",
+              "flex min-w-0 flex-col gap-3 rounded-2xl border bg-card p-4 shadow-card sm:flex-row sm:items-center sm:justify-between",
               !m.active && "opacity-60",
             )}
           >
@@ -198,7 +198,7 @@ export function TeamView({ directory }: { directory: DirectoryMember[] }) {
               </div>
             </div>
 
-            <div className="flex items-center justify-between gap-2 sm:justify-end">
+            <div className="flex flex-wrap items-center justify-between gap-2 sm:flex-nowrap sm:justify-end">
               {m.accountRole === "admin" && (
                 <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
                   Admin

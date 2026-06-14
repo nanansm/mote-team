@@ -2,9 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
+import { MoreHorizontal, Pencil, Plus, StickyNote, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { Linkify } from "@/components/linkify";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -70,6 +71,7 @@ export function ClientsView({ clients }: { clients: ClientRow[] }) {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<ClientRow | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ClientRow | null>(null);
+  const [notesTarget, setNotesTarget] = useState<ClientRow | null>(null);
   const [pending, startTransition] = useTransition();
 
   function openCreate() {
@@ -168,6 +170,17 @@ export function ClientsView({ clients }: { clients: ClientRow[] }) {
                         >
                           {row.name}
                         </button>
+                        {row.notes && (
+                          <button
+                            type="button"
+                            onClick={() => setNotesTarget(row)}
+                            className="shrink-0 text-muted-foreground hover:text-primary"
+                            title="Lihat catatan tim"
+                            aria-label="Catatan"
+                          >
+                            <StickyNote className="size-4" />
+                          </button>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -242,6 +255,21 @@ export function ClientsView({ clients }: { clients: ClientRow[] }) {
         onOpenChange={setFormOpen}
         client={editing}
       />
+
+      <Dialog
+        open={Boolean(notesTarget)}
+        onOpenChange={(o) => !o && setNotesTarget(null)}
+      >
+        <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Catatan — {notesTarget?.name}</DialogTitle>
+            <DialogDescription>Catatan tim untuk klien ini.</DialogDescription>
+          </DialogHeader>
+          {notesTarget?.notes && (
+            <Linkify text={notesTarget.notes} className="text-sm text-foreground" />
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={Boolean(deleteTarget)}

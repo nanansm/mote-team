@@ -3,14 +3,15 @@
 import { ExternalLink, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { TASK_STATUS_MAP, TYPE_CONTENTS, type TaskStatus } from "@/lib/task-meta";
 import { cn } from "@/lib/utils";
+import { TaskComments } from "./task-comments";
 import type { TaskRow } from "./types";
 
 function fmt(v: string | null): string {
@@ -63,14 +64,14 @@ export function TaskDetailSheet({
   const type = TYPE_CONTENTS.find((t) => t.value === task.typeContent)?.label;
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
-        <SheetHeader>
-          <SheetTitle className="pr-8 text-base leading-snug">{task.title}</SheetTitle>
-          <SheetDescription>{task.clientName}</SheetDescription>
-        </SheetHeader>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle className="pr-8 text-base leading-snug">{task.title}</DialogTitle>
+          <DialogDescription>{task.clientName}</DialogDescription>
+        </DialogHeader>
 
-        <div className="space-y-5 px-4 pb-6">
+        <div className="space-y-5 pb-2">
           <div className="flex flex-wrap items-center gap-2">
             <span className={cn("rounded-full px-2.5 py-1 text-xs font-medium", meta.badge)}>
               {meta.label}
@@ -130,8 +131,12 @@ export function TaskDetailSheet({
               </div>
             </Field>
           )}
+
+          <div className="border-t pt-4">
+            <TaskComments taskId={task.id} />
+          </div>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }

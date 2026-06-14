@@ -3,6 +3,7 @@ import {
   boolean,
   date,
   index,
+  integer,
   numeric,
   primaryKey,
   text,
@@ -53,6 +54,8 @@ export const client = moteteam.table("client", {
   windsorTiktokId: text("windsor_tiktok_id"), // TikTok account_name
   // Meta Ads account id (without act_ prefix) for paid performance via Graph API.
   metaAdAccountId: text("meta_ad_account_id"),
+  // Free-form notes/links for the team (briefs, drive links, brand guides).
+  notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -180,3 +183,40 @@ export const okr = moteteam.table("okr", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+// Collaboration: comment/notes thread per task (text or links).
+export const taskComment = moteteam.table(
+  "task_comment",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    taskId: uuid("task_id")
+      .notNull()
+      .references(() => task.id, { onDelete: "cascade" }),
+    authorUserId: text("author_user_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [index("task_comment_task_idx").on(t.taskId)],
+);
+
+// Recurring content template: one row = one recurring task line for a client.
+// "Generate bulan ini" creates tasks with postingDate = month + dayOfMonth.
+export const taskTemplate = moteteam.table(
+  "task_template",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => client.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    typeContent: typeContent("type_content"),
+    dayOfMonth: integer("day_of_month"), // 1..31, target posting day
+    caption: text("caption"),
+    sort: integer("sort").default(0).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [index("task_template_client_idx").on(t.clientId)],
+);
