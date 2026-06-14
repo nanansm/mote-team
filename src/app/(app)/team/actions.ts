@@ -9,6 +9,7 @@ import { db } from "@/db";
 import { invitation, teamMember, user } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { env } from "@/lib/env";
+import { inviteEmail, sendMail } from "@/lib/mailer";
 import { requireAdmin } from "@/lib/session";
 
 const inviteInput = z.object({
@@ -17,7 +18,7 @@ const inviteInput = z.object({
 });
 
 export type InviteResult =
-  | { ok: true; link: string }
+  | { ok: true; link: string; emailed: boolean }
   | { ok: false; error: string };
 
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -46,7 +47,12 @@ export async function createInvitation(raw: {
 
   revalidatePath("/team");
   const link = `${env.BETTER_AUTH_URL}/accept-invite?token=${token}`;
-  return { ok: true, link };
+  const emailed = await sendMail({
+    to: email,
+    subject: "Undangan gabung Mote Team",
+    html: inviteEmail({ name: email.split("@")[0], url: link }),
+  });
+  return { ok: true, link, emailed };
 }
 
 export async function revokeInvitation(
@@ -131,7 +137,7 @@ export async function inviteMember(
 ): Promise<InviteResult> {
   const session = await requireAdmin();
   const [m] = await db
-    .select({ email: teamMember.email })
+    .select({ name: teamMember.name, email: teamMember.email })
     .from(teamMember)
     .where(eq(teamMember.id, id))
     .limit(1);
@@ -149,7 +155,13 @@ export async function inviteMember(
     expiresAt,
   });
   revalidatePath("/team");
-  return { ok: true, link: `${env.BETTER_AUTH_URL}/accept-invite?token=${token}` };
+  const link = `${env.BETTER_AUTH_URL}/accept-invite?token=${token}`;
+  const emailed = await sendMail({
+    to: email,
+    subject: "Undangan gabung Mote Team",
+    html: inviteEmail({ name: m.name.split(" ")[0], url: link }),
+  });
+  return { ok: true, link, emailed };
 }
 
 /** Send a password-reset email to the member's account. */

@@ -99,7 +99,11 @@ export function TeamView({ directory }: { directory: DirectoryMember[] }) {
       const r = await inviteMember(m.id);
       if (r.ok) {
         await navigator.clipboard.writeText(r.link).catch(() => {});
-        toast.success("Undangan dibuat — link disalin. Kirim ke anggota.");
+        toast.success(
+          r.emailed
+            ? `Undangan dikirim ke email ${m.email} (link juga disalin).`
+            : "Undangan dibuat — link disalin. Kirim manual (email gagal/SMTP off).",
+        );
         router.refresh();
       } else toast.error(r.error);
     });
@@ -216,7 +220,7 @@ export function TeamView({ directory }: { directory: DirectoryMember[] }) {
                   {m.account === "none" && (
                     <DropdownMenuItem disabled={pending} onClick={() => invite(m)}>
                       <Send className="size-4" />
-                      Undang (buat akun)
+                      Undang (kirim email)
                     </DropdownMenuItem>
                   )}
                   {m.account === "pending" && m.inviteLink && (

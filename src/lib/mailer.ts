@@ -73,6 +73,16 @@ export function taskAssignedEmail(p: {
   );
 }
 
+export function inviteEmail(p: { name: string; url: string }): string {
+  return shell(
+    "Undangan gabung Mote Team",
+    `<p style="font-size:14px">Halo ${p.name}, kamu diundang gabung ke <b>Mote Team</b> — aplikasi project management tim Mote Kreatif (pengganti Notion).</p>
+     <p style="font-size:14px">Klik tombol di bawah untuk membuat password &amp; mengaktifkan akunmu (link berlaku 7 hari):</p>
+     <p style="margin-top:20px"><a href="${p.url}" style="background:${BRAND};color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600">Aktifkan akun</a></p>
+     <p style="margin-top:16px;color:#9ca3af;font-size:12px">Kalau tombol tak bisa diklik, salin link ini ke browser:<br>${p.url}</p>`,
+  );
+}
+
 export function resetPasswordEmail(p: { url: string }): string {
   return shell(
     "Reset password",
