@@ -19,10 +19,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import type { Holiday } from "@/lib/holidays";
 import { TASK_STATUSES, TASK_STATUS_MAP, TYPE_CONTENTS } from "@/lib/task-meta";
 import type { CalendarTask } from "./page";
 
 const ALL = "all";
+
+/** Selisih hari kalender (tz-aman, pakai UTC) dari `a` ke `b`. */
+function diffDays(a: string, b: string): number {
+  const [ay, am, ad] = a.split("-").map(Number);
+  const [by, bm, bd] = b.split("-").map(Number);
+  return Math.round(
+    (Date.UTC(by, bm - 1, bd) - Date.UTC(ay, am - 1, ad)) / 86_400_000,
+  );
+}
 
 type ClientOpt = { id: string; name: string };
 
@@ -53,12 +63,14 @@ export function CalendarView({
   month,
   tasks,
   today,
+  holidays,
 }: {
   clients: ClientOpt[];
   selectedClientId: string | null;
   month: string;
   tasks: CalendarTask[];
   today: string;
+  holidays: Record<string, Holiday>;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState<CalendarTask | null>(null);
@@ -87,6 +99,11 @@ export function CalendarView({
   for (let i = 0; i < lead; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
   while (cells.length % 7 !== 0) cells.push(null);
+
+  // Libur + momen bulan ini (untuk heads-up strip), urut tanggal.
+  const monthHolidays = Object.values(holidays)
+    .filter((h) => h.date.startsWith(month))
+    .sort((a, b) => a.date.localeCompare(b.date));
 
   function go(params: { client?: string; m?: string }) {
     const sp = new URLSearchParams();
@@ -171,6 +188,62 @@ export function CalendarView({
         </div>
       </div>
 
+      {/* Heads-up: libur & momen konten bulan ini — biar tim tak lupa story */}
+      {monthHolidays.length > 0 && (
+        <div className="rounded-lg border bg-card p-3">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="text-sm font-medium">
+              Libur &amp; momen {MONTHS[m - 1]}
+            </p>
+            <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+              <span className="inline-flex items-center gap-1">
+                <span className="size-2 rounded-full bg-red-500" /> Libur nasional
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <span className="size-2 rounded-full bg-emerald-500" /> Momen konten
+              </span>
+            </div>
+          </div>
+          <p className="mb-2 text-xs text-muted-foreground">
+            Siapkan story/konten ucapan untuk tanggal di bawah ini.
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {monthHolidays.map((h) => {
+              const d = diffDays(today, h.date);
+              const past = d < 0;
+              const isNat = h.kind === "national";
+              const day = Number(h.date.slice(8, 10));
+              return (
+                <span
+                  key={h.date + h.name}
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] ${
+                    past
+                      ? "border-border bg-muted/40 text-muted-foreground line-through"
+                      : isNat
+                        ? "border-red-200 bg-red-50 text-red-700"
+                        : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                  }`}
+                  title={h.name}
+                >
+                  <span className="font-semibold tabular-nums">{day}</span>
+                  <span className="max-w-[180px] truncate">{h.name}</span>
+                  {!past &&
+                    (d === 0 ? (
+                      <span className="rounded bg-current/15 px-1 font-medium">
+                        Hari ini
+                      </span>
+                    ) : (
+                      <span className="rounded bg-current/15 px-1 font-medium tabular-nums">
+                        H-{d}
+                      </span>
+                    ))}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Grid */}
       <div className="overflow-hidden rounded-lg border bg-card">
         <div className="grid grid-cols-7 border-b bg-muted/40 text-center text-xs font-medium text-muted-foreground">
@@ -185,12 +258,14 @@ export function CalendarView({
                 ? `${month}-${String(day).padStart(2, "0")}`
                 : null;
             const isToday = ymd === today;
+            const holiday = ymd ? holidays[ymd] : undefined;
+            const isNat = holiday?.kind === "national";
             const items = day != null ? (byDay.get(day) ?? []) : [];
             return (
               <div
                 key={i}
                 className={`min-h-[92px] border-b border-r p-1.5 last:border-r-0 [&:nth-child(7n)]:border-r-0 ${
-                  day == null ? "bg-muted/20" : ""
+                  day == null ? "bg-muted/20" : isNat ? "bg-red-50/40" : ""
                 }`}
               >
                 {day != null && (
@@ -199,11 +274,25 @@ export function CalendarView({
                       className={`mb-1 flex h-5 w-5 items-center justify-center rounded text-xs ${
                         isToday
                           ? "bg-primary font-semibold text-primary-foreground"
-                          : "text-muted-foreground"
+                          : isNat
+                            ? "font-semibold text-red-600"
+                            : "text-muted-foreground"
                       }`}
                     >
                       {day}
                     </div>
+                    {holiday && (
+                      <div
+                        className={`mb-1 truncate rounded px-1 py-0.5 text-[10px] font-medium leading-tight ${
+                          isNat
+                            ? "bg-red-100 text-red-700"
+                            : "bg-emerald-100 text-emerald-700"
+                        }`}
+                        title={holiday.name}
+                      >
+                        {holiday.name}
+                      </div>
+                    )}
                     <div className="space-y-1">
                       {items.map((t) => {
                         const st = TASK_STATUS_MAP[t.status];

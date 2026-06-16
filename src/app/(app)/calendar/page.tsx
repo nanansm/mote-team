@@ -1,6 +1,7 @@
 import { and, asc, eq, gte, lte } from "drizzle-orm";
 import { db } from "@/db";
 import { client, task } from "@/db/schema";
+import { getHolidays } from "@/lib/holidays";
 import type { TaskStatus, TypeContent } from "@/lib/task-meta";
 import { jakartaParts, todayJakarta } from "@/lib/tz";
 import { CalendarView } from "./calendar-view";
@@ -46,6 +47,9 @@ export default async function CalendarPage({
   const [y, m] = month.split("-").map(Number);
   const first = `${month}-01`;
   const last = lastOfMonth(y, m);
+
+  // Libur nasional + momen konten untuk tahun yang ditampilkan (overlay).
+  const holidays = await getHolidays(y);
 
   // Selected client: ?client=id, default first client.
   const selectedClientId =
@@ -95,6 +99,7 @@ export default async function CalendarPage({
       month={month}
       tasks={tasks}
       today={todayJakarta()}
+      holidays={holidays}
     />
   );
 }
