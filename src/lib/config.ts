@@ -65,6 +65,21 @@ export async function getWaConfig(): Promise<{
   };
 }
 
+/**
+ * Custom WhatsApp message templates. Empty string = use built-in default
+ * (the caller in lib/whatsapp falls back to WA_TEMPLATE_DEFAULTS).
+ */
+export async function getWaTemplates(): Promise<{
+  assign: string;
+  reminder: string;
+}> {
+  const s = await getSettings();
+  return {
+    assign: s["wa_tpl_assign"] ?? "",
+    reminder: s["wa_tpl_reminder"] ?? "",
+  };
+}
+
 /** Settings keys that the admin UI manages. */
 export const SETTING_KEYS = {
   windsorKey: "windsor_api_key",
@@ -75,4 +90,6 @@ export const SETTING_KEYS = {
   waInstance: "wa_instance",
   waApiKey: "wa_api_key",
   waEnabled: "wa_enabled",
+  waTplAssign: "wa_tpl_assign",
+  waTplReminder: "wa_tpl_reminder",
 } as const;

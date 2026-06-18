@@ -8,7 +8,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import {
+  WA_TEMPLATE_DEFAULTS,
+  WA_TEMPLATE_PLACEHOLDERS,
+} from "@/lib/wa-templates";
 import { saveSettings } from "./actions";
 
 function StatusBadge({ on }: { on: boolean }) {
@@ -125,11 +130,15 @@ function WhatsAppCard({
   baseUrl,
   instance,
   hasKey,
+  tplAssign,
+  tplReminder,
 }: {
   enabled: boolean;
   baseUrl: string;
   instance: string;
   hasKey: boolean;
+  tplAssign: string;
+  tplReminder: string;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -137,6 +146,13 @@ function WhatsAppCard({
   const [base, setBase] = useState(baseUrl);
   const [inst, setInst] = useState(instance);
   const [key, setKey] = useState("");
+  // Show the effective template: stored override, else the built-in default.
+  const [assignTpl, setAssignTpl] = useState(
+    tplAssign || WA_TEMPLATE_DEFAULTS.assign,
+  );
+  const [reminderTpl, setReminderTpl] = useState(
+    tplReminder || WA_TEMPLATE_DEFAULTS.reminder,
+  );
 
   function toggle(next: boolean) {
     setOn(next);
@@ -164,6 +180,21 @@ function WhatsAppCard({
       if (r.ok) {
         toast.success("Konfigurasi WhatsApp disimpan");
         setKey("");
+        router.refresh();
+      } else {
+        toast.error(r.error);
+      }
+    });
+  }
+
+  function saveTemplates() {
+    start(async () => {
+      const r = await saveSettings({
+        wa_tpl_assign: assignTpl,
+        wa_tpl_reminder: reminderTpl,
+      });
+      if (r.ok) {
+        toast.success("Template pesan disimpan");
         router.refresh();
       } else {
         toast.error(r.error);
@@ -231,6 +262,65 @@ function WhatsAppCard({
         Pakai API key per-instance dari dashboard Evolution (bukan global key).
         Pesan dikirim dari nomor instance ini.
       </p>
+
+      {/* Editable message templates */}
+      <div className="mt-5 border-t pt-4">
+        <h4 className="text-sm font-medium">Template pesan</h4>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          Placeholder otomatis diganti saat kirim. Kosongkan untuk pakai default.
+        </p>
+
+        <div className="mt-3 space-y-1.5">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs">Saat di-assign task</Label>
+            <button
+              type="button"
+              className="text-xs text-primary hover:underline"
+              onClick={() => setAssignTpl(WA_TEMPLATE_DEFAULTS.assign)}
+            >
+              Reset default
+            </button>
+          </div>
+          <Textarea
+            rows={9}
+            value={assignTpl}
+            onChange={(e) => setAssignTpl(e.target.value)}
+            className="font-mono text-xs"
+          />
+          <p className="text-xs text-muted-foreground">
+            Placeholder: {WA_TEMPLATE_PLACEHOLDERS.assign.join(" ")}
+          </p>
+        </div>
+
+        <div className="mt-4 space-y-1.5">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs">Reminder deadline (cron)</Label>
+            <button
+              type="button"
+              className="text-xs text-primary hover:underline"
+              onClick={() => setReminderTpl(WA_TEMPLATE_DEFAULTS.reminder)}
+            >
+              Reset default
+            </button>
+          </div>
+          <Textarea
+            rows={9}
+            value={reminderTpl}
+            onChange={(e) => setReminderTpl(e.target.value)}
+            className="font-mono text-xs"
+          />
+          <p className="text-xs text-muted-foreground">
+            Placeholder: {WA_TEMPLATE_PLACEHOLDERS.reminder.join(" ")} —{" "}
+            <code>{"{list}"}</code> = daftar task otomatis.
+          </p>
+        </div>
+
+        <div className="mt-3 flex justify-end">
+          <Button onClick={saveTemplates} disabled={pending}>
+            Simpan template
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -245,7 +335,14 @@ export function SettingsView({
 }: {
   windsor: { enabled: boolean; hasKey: boolean };
   meta: { enabled: boolean; hasKey: boolean };
-  wa: { enabled: boolean; baseUrl: string; instance: string; hasKey: boolean };
+  wa: {
+    enabled: boolean;
+    baseUrl: string;
+    instance: string;
+    hasKey: boolean;
+    tplAssign: string;
+    tplReminder: string;
+  };
   r2Configured: boolean;
   smtpConfigured: boolean;
   smtpFrom: string;
@@ -280,6 +377,8 @@ export function SettingsView({
         baseUrl={wa.baseUrl}
         instance={wa.instance}
         hasKey={wa.hasKey}
+        tplAssign={wa.tplAssign}
+        tplReminder={wa.tplReminder}
       />
 
       {/* Read-only status (env-managed for now) */}

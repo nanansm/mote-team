@@ -70,10 +70,10 @@ async function notifyAssignees(
     await Promise.all(
       recipients
         .filter((r) => r.phone)
-        .map((r) =>
+        .map(async (r) =>
           sendWhatsApp(
             r.phone,
-            taskAssignedWa({
+            await taskAssignedWa({
               name: r.name,
               taskTitle: info.title,
               clientName,
@@ -193,6 +193,15 @@ export async function updateTask(
   const parentId = parsed.data.parentId === id ? null : parsed.data.parentId ?? null;
   const assignees = parsed.data.assigneeIds;
 
+  // Who was already assigned — so we only notify the people newly added here
+  // (re-notifying everyone on every edit would spam).
+  const existing = await db
+    .select({ id: taskAssignee.teamMemberId })
+    .from(taskAssignee)
+    .where(eq(taskAssignee.taskId, id));
+  const existingIds = new Set(existing.map((e) => e.id));
+  const newlyAdded = assignees.filter((a) => !existingIds.has(a));
+
   await db.transaction(async (tx) => {
     await tx
       .update(task)
@@ -204,6 +213,13 @@ export async function updateTask(
         .insert(taskAssignee)
         .values(assignees.map((teamMemberId) => ({ taskId: id, teamMemberId })));
     }
+  });
+
+  await notifyAssignees(id, newlyAdded, {
+    title: parsed.data.title,
+    clientId: parsed.data.clientId,
+    status: parsed.data.status,
+    dueDate: parsed.data.dueDate ?? null,
   });
 
   revalidatePath("/tasks");

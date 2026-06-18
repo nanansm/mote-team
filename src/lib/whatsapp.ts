@@ -5,7 +5,8 @@
  * falling back to env. Sends are best-effort: a failure must never block the
  * task action or the cron job that triggered it.
  */
-import { getWaConfig, isWaEnabled } from "./config";
+import { getWaConfig, getWaTemplates, isWaEnabled } from "./config";
+import { WA_TEMPLATE_DEFAULTS, fillTemplate } from "./wa-templates";
 
 /**
  * Normalize an Indonesian phone number to the bare MSISDN Evolution expects
@@ -80,46 +81,33 @@ export async function sendWhatsApp(
 /* ----------------------------------------------------------- templates (HRD) */
 
 /** Message sent to an assignee when they get a new task. */
-export function taskAssignedWa(p: {
+export async function taskAssignedWa(p: {
   name: string;
   taskTitle: string;
   clientName: string;
   dueDate: string | null;
   url: string;
-}): string {
-  return [
-    `Halo ${p.name} 👋`,
-    ``,
-    `Ada task baru buat kamu dari tim Mote:`,
-    `📌 ${p.taskTitle}`,
-    `🏢 Klien: ${p.clientName}`,
-    `🗓️ Deadline: ${p.dueDate ?? "—"}`,
-    ``,
-    `Tolong dicek & dikerjakan ya 🙏`,
-    `Buka: ${p.url}`,
-    ``,
-    `— HRD Mote Kreatif`,
-  ].join("\n");
+}): Promise<string> {
+  const tpl = (await getWaTemplates()).assign || WA_TEMPLATE_DEFAULTS.assign;
+  return fillTemplate(tpl, {
+    nama: p.name,
+    judul: p.taskTitle,
+    klien: p.clientName,
+    deadline: p.dueDate ?? "—",
+    link: p.url,
+  });
 }
 
 /** Deadline reminder digest for one assignee. */
-export function deadlineReminderWa(p: {
+export async function deadlineReminderWa(p: {
   name: string;
   tasks: { title: string; clientName: string; dueDate: string | null }[];
   url: string;
-}): string {
+}): Promise<string> {
+  const tpl =
+    (await getWaTemplates()).reminder || WA_TEMPLATE_DEFAULTS.reminder;
   const list = p.tasks
     .map((t) => `• ${t.title} (${t.clientName}) — deadline ${t.dueDate ?? "—"}`)
     .join("\n");
-  return [
-    `Halo ${p.name}, ini pengingat dari HRD Mote 🙏`,
-    ``,
-    `Task kamu mendekati / lewat deadline:`,
-    list,
-    ``,
-    `Mohon segera ditindaklanjuti ya. Kalau ada kendala, kabari head kamu.`,
-    `Buka: ${p.url}`,
-    ``,
-    `— HRD Mote Kreatif`,
-  ].join("\n");
+  return fillTemplate(tpl, { nama: p.name, list, link: p.url });
 }

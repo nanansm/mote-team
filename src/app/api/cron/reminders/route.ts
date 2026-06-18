@@ -97,7 +97,7 @@ export async function GET(req: Request) {
     if (waOn && data.phone) {
       const ok = await sendWhatsApp(
         data.phone,
-        deadlineReminderWa({ name: data.name, tasks: data.tasks, url }),
+        await deadlineReminderWa({ name: data.name, tasks: data.tasks, url }),
       );
       if (ok) waSent++;
     }

@@ -3,6 +3,7 @@ import {
   getMetaToken,
   getSettings,
   getWaConfig,
+  getWaTemplates,
   getWindsorKey,
   isMetaEnabled,
   isWaEnabled,
@@ -19,15 +20,23 @@ export const dynamic = "force-dynamic";
 export default async function SettingsPage() {
   await requireAdmin();
 
-  const [windsorKey, windsorEnabled, metaToken, metaEnabled, waEnabled, waCfg] =
-    await Promise.all([
-      getWindsorKey(),
-      isWindsorEnabled(),
-      getMetaToken(),
-      isMetaEnabled(),
-      isWaEnabled(),
-      getWaConfig(),
-    ]);
+  const [
+    windsorKey,
+    windsorEnabled,
+    metaToken,
+    metaEnabled,
+    waEnabled,
+    waCfg,
+    waTpl,
+  ] = await Promise.all([
+    getWindsorKey(),
+    isWindsorEnabled(),
+    getMetaToken(),
+    isMetaEnabled(),
+    isWaEnabled(),
+    getWaConfig(),
+    getWaTemplates(),
+  ]);
   // Touch getSettings so it's cached for this request (no-op safety).
   await getSettings();
 
@@ -45,6 +54,8 @@ export default async function SettingsPage() {
           baseUrl: waCfg.baseUrl,
           instance: waCfg.instance,
           hasKey: Boolean(waCfg.apiKey),
+          tplAssign: waTpl.assign,
+          tplReminder: waTpl.reminder,
         }}
         r2Configured={isR2Configured()}
         smtpConfigured={isMailerConfigured()}
