@@ -48,6 +48,7 @@ export type DirectoryMember = {
   code: string | null;
   name: string;
   email: string | null;
+  phone: string | null;
   role: string | null;
   division: string | null;
   reportsTo: string | null;

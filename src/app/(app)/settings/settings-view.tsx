@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { BarChart3, Camera, Database, Mail } from "lucide-react";
+import { BarChart3, Camera, Database, Mail, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -120,15 +120,132 @@ function IntegrationCard({
   );
 }
 
+function WhatsAppCard({
+  enabled,
+  baseUrl,
+  instance,
+  hasKey,
+}: {
+  enabled: boolean;
+  baseUrl: string;
+  instance: string;
+  hasKey: boolean;
+}) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [on, setOn] = useState(enabled);
+  const [base, setBase] = useState(baseUrl);
+  const [inst, setInst] = useState(instance);
+  const [key, setKey] = useState("");
+
+  function toggle(next: boolean) {
+    setOn(next);
+    start(async () => {
+      const r = await saveSettings({ wa_enabled: String(next) });
+      if (r.ok) {
+        toast.success(next ? "WhatsApp diaktifkan" : "WhatsApp dimatikan");
+        router.refresh();
+      } else {
+        setOn(!next);
+        toast.error(r.error);
+      }
+    });
+  }
+
+  function save() {
+    const values: Record<string, string> = {
+      wa_base_url: base.trim(),
+      wa_instance: inst.trim(),
+    };
+    // Only overwrite the key when a new one is typed (blank = keep existing).
+    if (key.trim()) values.wa_api_key = key.trim();
+    start(async () => {
+      const r = await saveSettings(values);
+      if (r.ok) {
+        toast.success("Konfigurasi WhatsApp disimpan");
+        setKey("");
+        router.refresh();
+      } else {
+        toast.error(r.error);
+      }
+    });
+  }
+
+  const configured = Boolean(base.trim() && inst.trim() && hasKey);
+
+  return (
+    <div className="rounded-xl border bg-card p-5 shadow-xs">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+            <MessageCircle className="size-[18px]" />
+          </span>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="font-medium">WhatsApp (Evolution)</h3>
+              <StatusBadge on={configured} />
+            </div>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              Notif task & reminder deadline ke nomor WA tiap anggota.
+            </p>
+          </div>
+        </div>
+        <Switch checked={on} onCheckedChange={toggle} disabled={pending} />
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label className="text-xs">Base URL</Label>
+          <Input
+            value={base}
+            onChange={(e) => setBase(e.target.value)}
+            placeholder="https://...easypanel.host"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Instance</Label>
+          <Input
+            value={inst}
+            onChange={(e) => setInst(e.target.value)}
+            placeholder="mote-ryan"
+          />
+        </div>
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label className="text-xs">API Key (instance)</Label>
+          <Input
+            type="password"
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+            placeholder={hasKey ? "•••••••• (tersimpan — isi untuk ganti)" : "Belum diisi"}
+          />
+        </div>
+      </div>
+
+      <div className="mt-4 flex justify-end">
+        <Button onClick={save} disabled={pending}>
+          Simpan konfigurasi
+        </Button>
+      </div>
+
+      <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">
+        Pakai API key per-instance dari dashboard Evolution (bukan global key).
+        Pesan dikirim dari nomor instance ini.
+      </p>
+    </div>
+  );
+}
+
 export function SettingsView({
   windsor,
   meta,
+  wa,
   r2Configured,
   smtpConfigured,
   smtpFrom,
 }: {
   windsor: { enabled: boolean; hasKey: boolean };
   meta: { enabled: boolean; hasKey: boolean };
+  wa: { enabled: boolean; baseUrl: string; instance: string; hasKey: boolean };
   r2Configured: boolean;
   smtpConfigured: boolean;
   smtpFrom: string;
@@ -156,6 +273,13 @@ export function SettingsView({
         tokenKey="meta_access_token"
         tokenLabel="Meta Access Token"
         note="Meta punya rate limit. Kalau usage developer mendekati 100%, matikan toggle ini sementara — semua call Meta berhenti & usage berhenti naik. Limit reset otomatis tiap ~1 jam."
+      />
+
+      <WhatsAppCard
+        enabled={wa.enabled}
+        baseUrl={wa.baseUrl}
+        instance={wa.instance}
+        hasKey={wa.hasKey}
       />
 
       {/* Read-only status (env-managed for now) */}

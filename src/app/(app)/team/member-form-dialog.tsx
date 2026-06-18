@@ -47,6 +47,7 @@ export function MemberFormDialog({
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [role, setRole] = useState("");
   const [division, setDivision] = useState("");
   const [code, setCode] = useState("");
@@ -56,6 +57,7 @@ export function MemberFormDialog({
     if (!open) return;
     setName(member?.name ?? "");
     setEmail(member?.email ?? "");
+    setPhone(member?.phone ?? "");
     setRole(member?.role ?? "");
     setDivision(member?.division ?? "");
     setCode(member?.code ?? "");
@@ -67,6 +69,7 @@ export function MemberFormDialog({
     const payload = {
       name,
       email,
+      phone,
       role,
       division: division as "" | "creative" | "performance" | "growth" | "business",
       code,
@@ -111,6 +114,10 @@ export function MemberFormDialog({
             <div className="space-y-2">
               <Label htmlFor="m-email">Email</Label>
               <Input id="m-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="nama@motekreatif.com" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="m-phone">No. WhatsApp</Label>
+              <Input id="m-phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0822…" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="m-role">Role / Jabatan</Label>

@@ -10,6 +10,7 @@ import { invitation, teamMember, user } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { env } from "@/lib/env";
 import { inviteEmail, sendMail } from "@/lib/mailer";
+import { normalizePhone } from "@/lib/whatsapp";
 import { requireAdmin } from "@/lib/session";
 
 const inviteInput = z.object({
@@ -71,6 +72,7 @@ const DIVISIONS = ["performance", "creative", "growth", "business"] as const;
 const memberInput = z.object({
   name: z.string().trim().min(1, "Nama wajib diisi"),
   email: z.union([z.email("Email tidak valid"), z.literal("")]).optional(),
+  phone: z.string().trim().optional(),
   role: z.string().trim().optional(),
   division: z.union([z.enum(DIVISIONS), z.literal("")]).optional(),
   code: z.string().trim().optional(),
@@ -84,6 +86,8 @@ function memberValues(input: MemberInput) {
   return {
     name: input.name,
     email: input.email ? input.email.toLowerCase() : null,
+    // Stored normalized (62…) so sends don't depend on input formatting.
+    phone: normalizePhone(input.phone),
     role: input.role ? input.role : null,
     division: input.division ? input.division : null,
     code: input.code ? input.code : null,

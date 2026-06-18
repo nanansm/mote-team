@@ -36,6 +36,12 @@ export const env = {
   SMTP_FROM_NAME: process.env.SMTP_FROM_NAME ?? "Mote Team",
   SMTP_FROM_EMAIL: process.env.SMTP_FROM_EMAIL ?? "",
 
+  // Evolution API (self-hosted WhatsApp gateway). Defaults overridable in
+  // Settings (app_setting) — see lib/config getWaConfig.
+  EVOLUTION_API_URL: process.env.EVOLUTION_API_URL ?? "",
+  EVOLUTION_INSTANCE: process.env.EVOLUTION_INSTANCE ?? "",
+  EVOLUTION_API_KEY: process.env.EVOLUTION_API_KEY ?? "",
+
   // Shared secret guarding the cron reminder endpoint.
   CRON_SECRET: process.env.CRON_SECRET ?? "",
 

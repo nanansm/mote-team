@@ -52,6 +52,7 @@ import {
   type TaskStatus,
 } from "@/lib/task-meta";
 import { PageHeader } from "@/components/page-header";
+import { jakartaParts } from "@/lib/tz";
 import { deleteTask, updateTaskStatus } from "./actions";
 import { TaskFormDialog } from "./task-form-dialog";
 import { TaskDetailSheet } from "./task-detail-sheet";
@@ -63,6 +64,35 @@ import type { ClientOption, MemberOption, TaskRow } from "./types";
 type View = "table" | "board" | "calendar" | "client";
 
 const ALL = "all";
+
+const ID_MONTHS = [
+  "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+  "Juli", "Agustus", "September", "Oktober", "November", "Desember",
+];
+
+function monthLabel(value: string): string {
+  const [y, m] = value.split("-").map(Number);
+  return `${ID_MONTHS[m - 1]} ${y}`;
+}
+
+// The month a task belongs to: posting date wins, due date as fallback.
+function taskMonth(t: TaskRow): string | null {
+  return (t.postingDate ?? t.dueDate)?.slice(0, 7) ?? null;
+}
+
+// ±`span` months around the current Jakarta month, oldest → newest.
+function monthOptions(current: string, span = 6): string[] {
+  const [cy, cm] = current.split("-").map(Number);
+  const base = cy * 12 + (cm - 1);
+  const out: string[] = [];
+  for (let i = -span; i <= span; i++) {
+    const total = base + i;
+    const y = Math.floor(total / 12);
+    const m = (total % 12) + 1;
+    out.push(`${y}-${String(m).padStart(2, "0")}`);
+  }
+  return out;
+}
 
 function formatDate(value: string | null): string {
   if (!value) return "—";
@@ -147,9 +177,16 @@ export function TasksView({
   const [deleteTarget, setDeleteTarget] = useState<TaskRow | null>(null);
   const [pending, startTransition] = useTransition();
 
+  const currentMonth = useMemo(() => {
+    const { year, month } = jakartaParts();
+    return `${year}-${String(month).padStart(2, "0")}`;
+  }, []);
+  const months = useMemo(() => monthOptions(currentMonth), [currentMonth]);
+
   const [clientFilter, setClientFilter] = useState(ALL);
   const [statusFilter, setStatusFilter] = useState<string>(ALL);
   const [assigneeFilter, setAssigneeFilter] = useState(ALL);
+  const [monthFilter, setMonthFilter] = useState<string>(currentMonth);
   const [view, setView] = useState<View>("table");
   const [detail, setDetail] = useState<TaskRow | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -204,9 +241,10 @@ export function TasksView({
       )
         return false;
       if (statusFilter !== ALL && t.status !== statusFilter) return false;
+      if (monthFilter !== ALL && taskMonth(t) !== monthFilter) return false;
       return true;
     });
-  }, [tasks, clientFilter, assigneeFilter, statusFilter]);
+  }, [tasks, clientFilter, assigneeFilter, statusFilter, monthFilter]);
 
   const filtered = scoped;
 
@@ -327,6 +365,24 @@ export function TasksView({
             {members.map((m) => (
               <SelectItem key={m.id} value={m.id}>
                 {m.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={monthFilter}
+          onValueChange={(v) => setMonthFilter(v ?? currentMonth)}
+        >
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="Bulan">
+              {(v) => (v === ALL ? "Semua bulan" : monthLabel(v as string))}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>Semua bulan</SelectItem>
+            {months.map((m) => (
+              <SelectItem key={m} value={m}>
+                {monthLabel(m)}
               </SelectItem>
             ))}
           </SelectContent>

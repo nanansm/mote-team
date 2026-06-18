@@ -2,8 +2,10 @@ import { PageHeader } from "@/components/page-header";
 import {
   getMetaToken,
   getSettings,
+  getWaConfig,
   getWindsorKey,
   isMetaEnabled,
+  isWaEnabled,
   isWindsorEnabled,
 } from "@/lib/config";
 import { env } from "@/lib/env";
@@ -17,9 +19,15 @@ export const dynamic = "force-dynamic";
 export default async function SettingsPage() {
   await requireAdmin();
 
-  const [windsorKey, windsorEnabled, metaToken, metaEnabled] = await Promise.all(
-    [getWindsorKey(), isWindsorEnabled(), getMetaToken(), isMetaEnabled()],
-  );
+  const [windsorKey, windsorEnabled, metaToken, metaEnabled, waEnabled, waCfg] =
+    await Promise.all([
+      getWindsorKey(),
+      isWindsorEnabled(),
+      getMetaToken(),
+      isMetaEnabled(),
+      isWaEnabled(),
+      getWaConfig(),
+    ]);
   // Touch getSettings so it's cached for this request (no-op safety).
   await getSettings();
 
@@ -32,6 +40,12 @@ export default async function SettingsPage() {
       <SettingsView
         windsor={{ enabled: windsorEnabled, hasKey: Boolean(windsorKey) }}
         meta={{ enabled: metaEnabled, hasKey: Boolean(metaToken) }}
+        wa={{
+          enabled: waEnabled,
+          baseUrl: waCfg.baseUrl,
+          instance: waCfg.instance,
+          hasKey: Boolean(waCfg.apiKey),
+        }}
         r2Configured={isR2Configured()}
         smtpConfigured={isMailerConfigured()}
         smtpFrom={env.SMTP_FROM_EMAIL || env.SMTP_USER}

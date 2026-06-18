@@ -3,6 +3,11 @@ import { db } from "@/db";
 import { client, task, taskAssignee, teamMember, user } from "@/db/schema";
 import { env } from "@/lib/env";
 import { deadlineReminderEmail, isMailerConfigured, sendMail } from "@/lib/mailer";
+import {
+  deadlineReminderWa,
+  isWhatsAppConfigured,
+  sendWhatsApp,
+} from "@/lib/whatsapp";
 import { ymdOffset } from "@/lib/tz";
 
 export const runtime = "nodejs";
@@ -11,16 +16,19 @@ export const dynamic = "force-dynamic";
 /**
  * Deadline reminder job. Trigger daily via external cron:
  *   GET /api/cron/reminders?secret=CRON_SECRET
- * Emails each assignee the tasks of theirs that are due tomorrow or overdue and
- * not yet done/published.
+ * Notifies each assignee (email + WhatsApp, whichever is configured) about
+ * their tasks due tomorrow or overdue and not yet done/published.
  */
 export async function GET(req: Request) {
   const secret = new URL(req.url).searchParams.get("secret");
   if (!env.CRON_SECRET || secret !== env.CRON_SECRET) {
     return new Response("Unauthorized", { status: 401 });
   }
-  if (!isMailerConfigured()) {
-    return Response.json({ ok: false, error: "SMTP not configured" });
+
+  const mailerOn = isMailerConfigured();
+  const waOn = await isWhatsAppConfigured();
+  if (!mailerOn && !waOn) {
+    return Response.json({ ok: false, error: "No channel configured (SMTP/WhatsApp)" });
   }
 
   const tomorrow = ymdOffset(1); // WIB calendar day
@@ -30,8 +38,10 @@ export async function GET(req: Request) {
       title: task.title,
       dueDate: task.dueDate,
       clientName: client.name,
+      memberId: teamMember.id,
       memberName: teamMember.name,
       email: teamMember.email,
+      phone: teamMember.phone,
       userEmail: user.email,
     })
     .from(task)
@@ -47,36 +57,56 @@ export async function GET(req: Request) {
       ),
     );
 
-  // Group by recipient email.
-  const byEmail = new Map<
+  // Group by assignee (member) so each gets one email + one WhatsApp digest.
+  const byMember = new Map<
     string,
-    { name: string; tasks: { title: string; clientName: string; dueDate: string | null }[] }
+    {
+      name: string;
+      email: string | null;
+      phone: string | null;
+      tasks: { title: string; clientName: string; dueDate: string | null }[];
+    }
   >();
   for (const r of rows) {
-    const email = r.email ?? r.userEmail;
-    if (!email) continue;
-    const entry = byEmail.get(email) ?? { name: r.memberName, tasks: [] };
+    const entry = byMember.get(r.memberId) ?? {
+      name: r.memberName,
+      email: r.email ?? r.userEmail ?? null,
+      phone: r.phone,
+      tasks: [],
+    };
     entry.tasks.push({
       title: r.title,
       clientName: r.clientName ?? "—",
       dueDate: r.dueDate,
     });
-    byEmail.set(email, entry);
+    byMember.set(r.memberId, entry);
   }
 
-  let sent = 0;
-  for (const [email, data] of byEmail) {
-    const ok = await sendMail({
-      to: email,
-      subject: `⏰ ${data.tasks.length} task mendekati deadline`,
-      html: deadlineReminderEmail({
-        name: data.name,
-        tasks: data.tasks,
-        url: `${env.APP_URL}/tasks`,
-      }),
-    });
-    if (ok) sent++;
+  const url = `${env.APP_URL}/tasks`;
+  let emailsSent = 0;
+  let waSent = 0;
+  for (const data of byMember.values()) {
+    if (mailerOn && data.email) {
+      const ok = await sendMail({
+        to: data.email,
+        subject: `⏰ ${data.tasks.length} task mendekati deadline`,
+        html: deadlineReminderEmail({ name: data.name, tasks: data.tasks, url }),
+      });
+      if (ok) emailsSent++;
+    }
+    if (waOn && data.phone) {
+      const ok = await sendWhatsApp(
+        data.phone,
+        deadlineReminderWa({ name: data.name, tasks: data.tasks, url }),
+      );
+      if (ok) waSent++;
+    }
   }
 
-  return Response.json({ ok: true, recipients: byEmail.size, sent });
+  return Response.json({
+    ok: true,
+    recipients: byMember.size,
+    emailsSent,
+    waSent,
+  });
 }

@@ -67,6 +67,7 @@ export const teamMember = moteteam.table("team_member", {
   }),
   name: text("name").notNull(),
   email: text("email"), // for notifications (overrides linked auth user email)
+  phone: text("phone"), // WhatsApp number, stored normalized (62…) — see lib/whatsapp
   role: text("role"),
   // Additive vs PRD (see enum note).
   division: teamDivision("division"),

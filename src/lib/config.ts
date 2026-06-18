@@ -8,6 +8,7 @@ import { env } from "./env";
 export const SECRET_SETTING_KEYS = new Set([
   "windsor_api_key",
   "meta_access_token",
+  "wa_api_key",
 ]);
 
 /**
@@ -49,10 +50,29 @@ export const isWindsorEnabled = () => flag("windsor_enabled", true);
 export const getMetaToken = () => value("meta_access_token", env.META_ACCESS_TOKEN);
 export const isMetaEnabled = () => flag("meta_enabled", true);
 
+// WhatsApp (Evolution API) — default off until configured.
+export const isWaEnabled = () => flag("wa_enabled", false);
+export async function getWaConfig(): Promise<{
+  baseUrl: string;
+  instance: string;
+  apiKey: string;
+}> {
+  const s = await getSettings();
+  return {
+    baseUrl: s["wa_base_url"] ?? env.EVOLUTION_API_URL,
+    instance: s["wa_instance"] ?? env.EVOLUTION_INSTANCE,
+    apiKey: s["wa_api_key"] ?? env.EVOLUTION_API_KEY,
+  };
+}
+
 /** Settings keys that the admin UI manages. */
 export const SETTING_KEYS = {
   windsorKey: "windsor_api_key",
   windsorEnabled: "windsor_enabled",
   metaToken: "meta_access_token",
   metaEnabled: "meta_enabled",
+  waBaseUrl: "wa_base_url",
+  waInstance: "wa_instance",
+  waApiKey: "wa_api_key",
+  waEnabled: "wa_enabled",
 } as const;

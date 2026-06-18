@@ -15,6 +15,7 @@ export default async function TeamPage() {
         code: teamMember.code,
         name: teamMember.name,
         email: teamMember.email,
+        phone: teamMember.phone,
         role: teamMember.role,
         division: teamMember.division,
         reportsTo: teamMember.reportsTo,

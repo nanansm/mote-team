@@ -14,6 +14,7 @@ import {
 } from "@/db/schema";
 import { env } from "@/lib/env";
 import { sendMail, taskAssignedEmail } from "@/lib/mailer";
+import { sendWhatsApp, taskAssignedWa } from "@/lib/whatsapp";
 import { TASK_STATUS_MAP, type TaskStatus } from "@/lib/task-meta";
 import { requireSession } from "@/lib/session";
 
@@ -28,7 +29,9 @@ async function notifyAssignees(
     const [recipients, clientRow] = await Promise.all([
       db
         .select({
+          name: teamMember.name,
           email: teamMember.email,
+          phone: teamMember.phone,
           userEmail: user.email,
         })
         .from(teamMember)
@@ -40,24 +43,46 @@ async function notifyAssignees(
         .where(eq(client.id, info.clientId))
         .limit(1),
     ]);
+    const clientName = clientRow[0]?.name ?? "—";
+    const url = `${env.APP_URL}/tasks`;
+
+    // Email — one batch to all assignees with an address.
     const emails = recipients
       .map((r) => r.email ?? r.userEmail)
       .filter((e): e is string => Boolean(e));
-    if (emails.length === 0) return;
+    if (emails.length > 0) {
+      const statusLabel =
+        TASK_STATUS_MAP[info.status as TaskStatus]?.label ?? info.status;
+      await sendMail({
+        to: emails,
+        subject: `Task baru: ${info.title}`,
+        html: taskAssignedEmail({
+          taskTitle: info.title,
+          clientName,
+          status: statusLabel,
+          dueDate: info.dueDate,
+          url,
+        }),
+      });
+    }
 
-    const statusLabel =
-      TASK_STATUS_MAP[info.status as TaskStatus]?.label ?? info.status;
-    await sendMail({
-      to: emails,
-      subject: `Task baru: ${info.title}`,
-      html: taskAssignedEmail({
-        taskTitle: info.title,
-        clientName: clientRow[0]?.name ?? "—",
-        status: statusLabel,
-        dueDate: info.dueDate,
-        url: `${env.APP_URL}/tasks`,
-      }),
-    });
+    // WhatsApp — personalized per assignee that has a number (independent of email).
+    await Promise.all(
+      recipients
+        .filter((r) => r.phone)
+        .map((r) =>
+          sendWhatsApp(
+            r.phone,
+            taskAssignedWa({
+              name: r.name,
+              taskTitle: info.title,
+              clientName,
+              dueDate: info.dueDate,
+              url,
+            }),
+          ),
+        ),
+    );
   } catch (e) {
     console.error("[notifyAssignees] failed:", e);
   }
