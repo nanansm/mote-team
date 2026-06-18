@@ -59,17 +59,17 @@ export type DirectoryMember = {
 };
 
 const DIVISION_TONE: Record<string, string> = {
-  creative: "bg-purple-100 text-purple-700",
-  performance: "bg-blue-100 text-blue-700",
-  growth: "bg-green-100 text-green-700",
-  business: "bg-amber-100 text-amber-700",
+  creative: "bg-purple-100 text-purple-700 dark:bg-purple-400/15 dark:text-purple-300",
+  performance: "bg-blue-100 text-blue-700 dark:bg-blue-400/15 dark:text-blue-300",
+  growth: "bg-green-100 text-green-700 dark:bg-green-400/15 dark:text-green-300",
+  business: "bg-amber-100 text-amber-700 dark:bg-amber-400/15 dark:text-amber-300",
 };
 
 function AccountBadge({ status }: { status: DirectoryMember["account"] }) {
   const map = {
-    active: ["Akun aktif", "bg-green-100 text-green-700"],
-    pending: ["Undangan terkirim", "bg-amber-100 text-amber-700"],
-    none: ["Belum ada akun", "bg-zinc-100 text-zinc-500"],
+    active: ["Akun aktif", "bg-green-100 text-green-700 dark:bg-green-400/15 dark:text-green-300"],
+    pending: ["Undangan terkirim", "bg-amber-100 text-amber-700 dark:bg-amber-400/15 dark:text-amber-300"],
+    none: ["Belum ada akun", "bg-zinc-100 text-zinc-500 dark:bg-zinc-400/15 dark:text-zinc-400"],
   } as const;
   const [label, tone] = map[status];
   return (
@@ -201,7 +201,7 @@ export function TeamView({ directory }: { directory: DirectoryMember[] }) {
 
             <div className="flex flex-wrap items-center justify-between gap-2 sm:flex-nowrap sm:justify-end">
               {m.accountRole === "admin" && (
-                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-300">
                   Admin
                 </span>
               )}

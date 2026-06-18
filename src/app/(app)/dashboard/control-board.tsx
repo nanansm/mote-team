@@ -166,7 +166,7 @@ export async function ControlBoard() {
                     status={r.status as TaskStatus}
                     due={r.dueDate}
                     who={assigneeMap.get(r.id)?.join(", ")}
-                    tone="text-red-600 font-medium"
+                    tone="text-red-600 font-medium dark:text-red-400"
                   />
                 ))
             )}

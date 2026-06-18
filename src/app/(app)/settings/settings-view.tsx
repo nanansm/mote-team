@@ -21,7 +21,9 @@ function StatusBadge({ on }: { on: boolean }) {
     <span
       className={cn(
         "rounded-full px-2 py-0.5 text-xs font-medium",
-        on ? "bg-green-100 text-green-700" : "bg-zinc-100 text-zinc-500",
+        on
+          ? "bg-green-100 text-green-700 dark:bg-green-400/15 dark:text-green-300"
+          : "bg-zinc-100 text-zinc-500 dark:bg-zinc-400/15 dark:text-zinc-400",
       )}
     >
       {on ? "Terhubung" : "Belum diatur"}
@@ -117,7 +119,7 @@ function IntegrationCard({
       </div>
 
       {note && (
-        <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">
+        <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-400/10 dark:text-amber-300">
           {note}
         </p>
       )}

@@ -420,7 +420,12 @@ export function TasksView({
 
       {view === "board" && <TasksBoard tasks={scoped} onOpen={openDetail} />}
       {view === "calendar" && (
-        <TasksCalendar tasks={scoped} onOpen={openDetail} />
+        <TasksCalendar
+          tasks={scoped}
+          month={monthFilter === ALL ? currentMonth : monthFilter}
+          onMonthChange={setMonthFilter}
+          onOpen={openDetail}
+        />
       )}
       {view === "client" && (
         <TasksByClient tasks={scoped} clients={clients} onOpen={openDetail} />

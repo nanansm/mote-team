@@ -1,10 +1,9 @@
 "use client";
 
-import { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TASK_STATUS_MAP, type TaskStatus } from "@/lib/task-meta";
-import { ymdJakarta } from "@/lib/tz";
+import { jakartaParts, ymdJakarta } from "@/lib/tz";
 import { cn } from "@/lib/utils";
 import type { TaskRow } from "./types";
 
@@ -14,15 +13,30 @@ const MONTHS = [
   "Juli", "Agustus", "September", "Oktober", "November", "Desember",
 ];
 
+/** Shift a "YYYY-MM" string by `delta` months. */
+function shiftMonth(ym: string, delta: number): string {
+  const [y, m] = ym.split("-").map(Number);
+  const total = y * 12 + (m - 1) + delta;
+  const ny = Math.floor(total / 12);
+  const nm = (total % 12) + 1;
+  return `${ny}-${String(nm).padStart(2, "0")}`;
+}
+
 export function TasksCalendar({
   tasks,
+  month,
+  onMonthChange,
   onOpen,
 }: {
   tasks: TaskRow[];
+  /** Displayed month "YYYY-MM" — driven by the toolbar month filter. */
+  month: string;
+  onMonthChange: (m: string) => void;
   onOpen: (t: TaskRow) => void;
 }) {
   const now = new Date();
-  const [cursor, setCursor] = useState({ y: now.getFullYear(), m: now.getMonth() });
+  const [cy, cm1] = month.split("-").map(Number);
+  const cursor = { y: cy, m: cm1 - 1 };
 
   const first = new Date(cursor.y, cursor.m, 1);
   const startDow = first.getDay();
@@ -43,11 +57,9 @@ export function TasksCalendar({
   for (let i = 0; i < startDow; i++) cells.push(null);
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
 
-  function shift(delta: number) {
-    setCursor((c) => {
-      const nm = c.m + delta;
-      return { y: c.y + Math.floor(nm / 12), m: ((nm % 12) + 12) % 12 };
-    });
+  function gotoToday() {
+    const p = jakartaParts(now);
+    onMonthChange(`${p.year}-${String(p.month).padStart(2, "0")}`);
   }
 
   const noDate = tasks.filter((t) => !t.postingDate).length;
@@ -59,13 +71,13 @@ export function TasksCalendar({
           {MONTHS[cursor.m]} {cursor.y}
         </h3>
         <div className="flex items-center gap-1">
-          <Button variant="outline" size="sm" onClick={() => setCursor({ y: now.getFullYear(), m: now.getMonth() })}>
+          <Button variant="outline" size="sm" onClick={gotoToday}>
             Hari ini
           </Button>
-          <Button variant="ghost" size="icon" className="size-8" aria-label="Bulan sebelumnya" onClick={() => shift(-1)}>
+          <Button variant="ghost" size="icon" className="size-8" aria-label="Bulan sebelumnya" onClick={() => onMonthChange(shiftMonth(month, -1))}>
             <ChevronLeft className="size-4" />
           </Button>
-          <Button variant="ghost" size="icon" className="size-8" aria-label="Bulan berikutnya" onClick={() => shift(1)}>
+          <Button variant="ghost" size="icon" className="size-8" aria-label="Bulan berikutnya" onClick={() => onMonthChange(shiftMonth(month, 1))}>
             <ChevronRight className="size-4" />
           </Button>
         </div>

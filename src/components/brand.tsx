@@ -1,6 +1,7 @@
 import Image from "next/image";
+import { cn } from "@/lib/utils";
 
-/** Mote bow logogram (~1.92:1). */
+/** Mote bow logogram (~1.92:1). Pure-black art → inverts to white in dark mode. */
 export function LogoMark({
   height = 20,
   white = false,
@@ -16,7 +17,7 @@ export function LogoMark({
       alt="Mote"
       width={Math.round(height * 1.92)}
       height={height}
-      className={className}
+      className={cn(!white && "dark:invert", className)}
       unoptimized
       priority
     />
@@ -39,7 +40,7 @@ export function Wordmark({
       alt="MOTE"
       width={Math.round(height * 3.65)}
       height={height}
-      className={className}
+      className={cn(!white && "dark:invert", className)}
       unoptimized
       priority
     />

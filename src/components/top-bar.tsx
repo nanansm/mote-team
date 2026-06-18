@@ -7,11 +7,13 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { UserAvatar } from "@/components/user-avatar";
 import { signOut } from "@/lib/auth-client";
 import { navItems, visibleNav } from "./nav-items";
@@ -101,6 +103,8 @@ export function TopBar({
           <Plus className="size-4" />
         </Button>
 
+        <ThemeToggle />
+
       <DropdownMenu>
         <DropdownMenuTrigger
           render={<Button variant="ghost" className="gap-2 px-1.5" />}
@@ -111,12 +115,14 @@ export function TopBar({
           </span>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
-          <DropdownMenuLabel className="flex flex-col">
-            <span className="font-medium">{user.name}</span>
-            <span className="text-xs font-normal text-muted-foreground">
-              {user.email}
-            </span>
-          </DropdownMenuLabel>
+          <DropdownMenuGroup>
+            <DropdownMenuLabel className="flex flex-col">
+              <span className="font-medium">{user.name}</span>
+              <span className="text-xs font-normal text-muted-foreground">
+                {user.email}
+              </span>
+            </DropdownMenuLabel>
+          </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleSignOut} variant="destructive">
             <LogOut className="size-4" />

@@ -33,7 +33,9 @@ function DeltaPill({ cur, prev }: { cur: number; prev: number }) {
     <span
       className={cn(
         "inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-medium",
-        up ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700",
+        up
+          ? "bg-green-100 text-green-700 dark:bg-green-400/15 dark:text-green-300"
+          : "bg-red-100 text-red-700 dark:bg-red-400/15 dark:text-red-300",
       )}
     >
       {up ? <ArrowUpRight className="size-3" /> : <ArrowDownRight className="size-3" />}
@@ -212,7 +214,7 @@ export function PerformancePanel({
 
   if (!windsorConfigured && !metaConfigured) {
     return (
-      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-300">
         Belum ada integrasi. Set <code>WINDSOR_API_KEY</code> dan/atau{" "}
         <code>META_ACCESS_TOKEN</code> di env.
       </div>

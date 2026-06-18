@@ -220,8 +220,8 @@ export function CalendarView({
                     past
                       ? "border-border bg-muted/40 text-muted-foreground line-through"
                       : isNat
-                        ? "border-red-200 bg-red-50 text-red-700"
-                        : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                        ? "border-red-200 bg-red-50 text-red-700 dark:border-red-400/20 dark:bg-red-400/10 dark:text-red-300"
+                        : "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-300"
                   }`}
                   title={h.name}
                 >
@@ -265,7 +265,7 @@ export function CalendarView({
               <div
                 key={i}
                 className={`min-h-[92px] border-b border-r p-1.5 last:border-r-0 [&:nth-child(7n)]:border-r-0 ${
-                  day == null ? "bg-muted/20" : isNat ? "bg-red-50/40" : ""
+                  day == null ? "bg-muted/20" : isNat ? "bg-red-50/40 dark:bg-red-400/5" : ""
                 }`}
               >
                 {day != null && (
@@ -275,7 +275,7 @@ export function CalendarView({
                         isToday
                           ? "bg-primary font-semibold text-primary-foreground"
                           : isNat
-                            ? "font-semibold text-red-600"
+                            ? "font-semibold text-red-600 dark:text-red-400"
                             : "text-muted-foreground"
                       }`}
                     >
@@ -285,8 +285,8 @@ export function CalendarView({
                       <div
                         className={`mb-1 truncate rounded px-1 py-0.5 text-[10px] font-medium leading-tight ${
                           isNat
-                            ? "bg-red-100 text-red-700"
-                            : "bg-emerald-100 text-emerald-700"
+                            ? "bg-red-100 text-red-700 dark:bg-red-400/15 dark:text-red-300"
+                            : "bg-emerald-100 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-300"
                         }`}
                         title={holiday.name}
                       >

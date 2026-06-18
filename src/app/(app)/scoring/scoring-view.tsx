@@ -43,10 +43,10 @@ function monthLabel(p: string): string {
 
 function scoreTone(v: number): string {
   return v >= 80
-    ? "bg-green-100 text-green-700"
+    ? "bg-green-100 text-green-700 dark:bg-green-400/15 dark:text-green-300"
     : v >= 60
-      ? "bg-amber-100 text-amber-700"
-      : "bg-red-100 text-red-700";
+      ? "bg-amber-100 text-amber-700 dark:bg-amber-400/15 dark:text-amber-300"
+      : "bg-red-100 text-red-700 dark:bg-red-400/15 dark:text-red-300";
 }
 
 function Pct({ value }: { value: number | null }) {

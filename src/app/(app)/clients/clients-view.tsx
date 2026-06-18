@@ -42,15 +42,18 @@ const STATUS_META: Record<
 > = {
   active: {
     label: "Active",
-    className: "border-transparent bg-green-100 text-green-700",
+    className:
+      "border-transparent bg-green-100 text-green-700 dark:bg-green-400/15 dark:text-green-300",
   },
   on_hold: {
     label: "On hold",
-    className: "border-transparent bg-amber-100 text-amber-700",
+    className:
+      "border-transparent bg-amber-100 text-amber-700 dark:bg-amber-400/15 dark:text-amber-300",
   },
   offboarding: {
     label: "Offboarding",
-    className: "border-transparent bg-zinc-100 text-zinc-600",
+    className:
+      "border-transparent bg-zinc-100 text-zinc-600 dark:bg-zinc-400/15 dark:text-zinc-300",
   },
 };
 

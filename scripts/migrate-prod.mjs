@@ -51,6 +51,20 @@ try {
     console.log("[migrate-prod] June content already applied → skip.");
   }
 
+  // One-time Notion → Mote sync for June (new tasks + status changes). Guarded
+  // by an app_setting flag. INSERTs are WHERE NOT EXISTS (by title) and UPDATEs
+  // match by exact title, so a re-run is a no-op (verified idempotent locally).
+  const nflag = await sql`select 1 from moteteam.app_setting where key = 'notion_sync_juni_v1'`;
+  if (nflag.length === 0 && fs.existsSync("scripts/notion-sync-juni-v1.sql")) {
+    console.log("[migrate-prod] applying Notion June sync…");
+    await sql.unsafe(fs.readFileSync("scripts/notion-sync-juni-v1.sql", "utf8"));
+    await sql`insert into moteteam.app_setting (key, value) values ('notion_sync_juni_v1', 'done') on conflict (key) do nothing`;
+    const [t] = await sql`select count(*)::int n from moteteam.task`;
+    console.log(`[migrate-prod] Notion June sync applied (total task=${t.n}).`);
+  } else {
+    console.log("[migrate-prod] Notion June sync already applied → skip.");
+  }
+
   // One-time cleanup of duplicate team_member rows from the old accept-invite
   // flow (link real member to its auth user, drop the orphan dupes).
   const dflag = await sql`select 1 from moteteam.app_setting where key = 'dedupe_members_v1'`;

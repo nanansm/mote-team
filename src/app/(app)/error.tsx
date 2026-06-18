@@ -23,7 +23,7 @@ export default function AppError({
   return (
     <div className="grid min-h-[60vh] place-items-center">
       <div className="flex max-w-md flex-col items-center rounded-2xl border bg-card p-8 text-center shadow-card">
-        <div className="grid size-12 place-items-center rounded-full bg-red-100 text-red-600">
+        <div className="grid size-12 place-items-center rounded-full bg-red-100 text-red-600 dark:bg-red-400/15 dark:text-red-400">
           <AlertTriangle className="size-6" />
         </div>
         <h2 className="mt-4 text-base font-semibold">Ada yang error</h2>
