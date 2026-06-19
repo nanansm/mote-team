@@ -340,30 +340,3 @@ export async function deleteComment(id: string): Promise<ActionResult> {
   revalidatePath("/tasks");
   return { ok: true };
 }
-
-/**
- * Ensure a task has a public approval token and return its shareable link.
- * Generates the token on first call and sets status to "pending".
- */
-export async function ensureApprovalLink(
-  taskId: string,
-): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
-  await requireSession();
-  const rows = await db
-    .select({ token: task.approvalToken })
-    .from(task)
-    .where(eq(task.id, taskId))
-    .limit(1);
-  if (!rows[0]) return { ok: false, error: "Task tidak ditemukan" };
-
-  let token = rows[0].token;
-  if (!token) {
-    token = crypto.randomUUID();
-    await db
-      .update(task)
-      .set({ approvalToken: token, approvalStatus: "pending" })
-      .where(eq(task.id, taskId));
-    revalidatePath("/tasks");
-  }
-  return { ok: true, url: `${env.APP_URL}/approve/${token}` };
-}
