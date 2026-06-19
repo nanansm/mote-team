@@ -81,6 +81,20 @@ try {
     console.log("[migrate-prod] Notion June sync v2 already applied → skip.");
   }
 
+  // One-time KOL activation import (local → prod). Resolves client by NAME so
+  // it's env-independent. Guarded by app_setting flag. INSERTs are WHERE NOT
+  // EXISTS (client + period + username) → idempotent (verified locally).
+  const kflag = await sql`select 1 from moteteam.app_setting where key = 'kol_import_v1'`;
+  if (kflag.length === 0 && fs.existsSync("scripts/kol-import-prod-v1.sql")) {
+    console.log("[migrate-prod] importing KOL activation…");
+    await sql.unsafe(fs.readFileSync("scripts/kol-import-prod-v1.sql", "utf8"));
+    await sql`insert into moteteam.app_setting (key, value) values ('kol_import_v1', 'done') on conflict (key) do nothing`;
+    const [k] = await sql`select count(*)::int n from moteteam.kol_activation`;
+    console.log(`[migrate-prod] KOL imported (total kol=${k.n}).`);
+  } else {
+    console.log("[migrate-prod] KOL import already applied → skip.");
+  }
+
   // One-time cleanup of duplicate team_member rows from the old accept-invite
   // flow (link real member to its auth user, drop the orphan dupes).
   const dflag = await sql`select 1 from moteteam.app_setting where key = 'dedupe_members_v1'`;
