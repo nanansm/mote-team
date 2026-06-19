@@ -65,6 +65,22 @@ try {
     console.log("[migrate-prod] Notion June sync already applied → skip.");
   }
 
+  // One-time Notion → Mote sync v2 for June (status + detail: due/posting date,
+  // type_content, caption, links). Source: latest Notion CSV export, 3 active
+  // clients. Guarded by app_setting flag. INSERTs are WHERE NOT EXISTS (by
+  // title); UPDATEs match by exact title (Notion = source of truth for this
+  // sync). Verified idempotent locally.
+  const n2flag = await sql`select 1 from moteteam.app_setting where key = 'notion_sync_juni_v2'`;
+  if (n2flag.length === 0 && fs.existsSync("scripts/notion-sync-juni-v2.sql")) {
+    console.log("[migrate-prod] applying Notion June sync v2 (status + detail)…");
+    await sql.unsafe(fs.readFileSync("scripts/notion-sync-juni-v2.sql", "utf8"));
+    await sql`insert into moteteam.app_setting (key, value) values ('notion_sync_juni_v2', 'done') on conflict (key) do nothing`;
+    const [t] = await sql`select count(*)::int n from moteteam.task`;
+    console.log(`[migrate-prod] Notion June sync v2 applied (total task=${t.n}).`);
+  } else {
+    console.log("[migrate-prod] Notion June sync v2 already applied → skip.");
+  }
+
   // One-time cleanup of duplicate team_member rows from the old accept-invite
   // flow (link real member to its auth user, drop the orphan dupes).
   const dflag = await sql`select 1 from moteteam.app_setting where key = 'dedupe_members_v1'`;

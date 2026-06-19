@@ -36,6 +36,7 @@ export default async function CalendarPage({
   const clients = await db
     .select({ id: client.id, name: client.name })
     .from(client)
+    .where(eq(client.status, "active"))
     .orderBy(asc(client.name));
 
   // Selected month: ?m=YYYY-MM, default current Jakarta month.

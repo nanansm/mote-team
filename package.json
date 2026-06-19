@@ -16,7 +16,8 @@
     "db:push": "drizzle-kit push",
     "seed:admin": "node --env-file=.env --import tsx scripts/seed-admin.ts",
     "test:r2": "node --env-file=.env --import tsx scripts/test-r2.ts",
-    "migrate:tasks": "node --env-file=.env --import tsx scripts/migrate-tasks.ts"
+    "migrate:tasks": "node --env-file=.env --import tsx scripts/migrate-tasks.ts",
+    "import:kol": "node --env-file=.env --import tsx scripts/import-kol.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1068.0",
@@ -35,9 +36,11 @@
     "react-dom": "19.2.4",
     "shadcn": "^4.11.0",
     "sharp": "^0.35.1",
+    "socks": "^2.8.9",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.6.0",
     "tw-animate-css": "^1.4.0",
+    "undici": "^6.27.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

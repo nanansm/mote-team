@@ -10,6 +10,7 @@ export default async function TasksPage() {
     db
       .select({ id: client.id, name: client.name })
       .from(client)
+      .where(eq(client.status, "active"))
       .orderBy(asc(client.name)),
     db
       .select({ id: teamMember.id, name: teamMember.name })

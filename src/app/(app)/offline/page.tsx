@@ -25,6 +25,7 @@ export default async function OfflinePage({
   const clients = await db
     .select({ id: client.id, name: client.name })
     .from(client)
+    .where(eq(client.status, "active"))
     .orderBy(asc(client.name));
 
   const selectedClient =

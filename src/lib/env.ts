@@ -24,6 +24,12 @@ export const env = {
   // Windsor.ai REST API key (organic/ads performance per client).
   WINDSOR_API_KEY: process.env.WINDSOR_API_KEY ?? "",
 
+  // SOCKS5 proxy for KOL profile scraping (Cloudflare WARP exit-IP, dodges
+  // IG/TikTok IP-block). Prod: socks5h://172.18.0.1:40000 (host gateway from
+  // container). Local dev: SSH tunnel -L 40000:127.0.0.1:40000 then
+  // socks5h://127.0.0.1:40000. Empty = direct (likely blocked, scrape returns null).
+  SCRAPE_PROXY_URL: process.env.SCRAPE_PROXY_URL ?? "",
+
   // Meta (Facebook) Graph API access token for paid ads insights.
   META_ACCESS_TOKEN: process.env.META_ACCESS_TOKEN ?? "",
 

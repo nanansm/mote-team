@@ -34,7 +34,6 @@ import { monthLabel, monthOptions } from "@/lib/month";
 import { KOL_STATUS_LABEL, type KolAggregate, type KolRowComputed } from "@/lib/kol";
 import type { KolStatus } from "@/lib/types";
 import { deleteKol } from "./actions";
-import { KolBoard } from "./kol-board";
 import { KolFormDialog } from "./kol-form-dialog";
 
 const STATUS_TONE: Record<KolStatus, string> = {
@@ -92,7 +91,6 @@ export function KolView({
   const months = monthOptions(nowMonth);
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [view, setView] = useState<"table" | "board">("table");
   const [formOpen, setFormOpen] = useState(false);
   const [editRow, setEditRow] = useState<KolRowComputed | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<KolRowComputed | null>(null);
@@ -254,27 +252,6 @@ export function KolView({
         </div>
       )}
 
-      {/* View toggle */}
-      <div className="flex gap-1">
-        {(["table", "board"] as const).map((v) => (
-          <button
-            key={v}
-            onClick={() => setView(v)}
-            className={cn(
-              "rounded-md px-3 py-1 text-xs font-medium transition-colors",
-              view === v
-                ? "bg-primary text-primary-foreground"
-                : "border bg-background text-muted-foreground hover:bg-accent",
-            )}
-          >
-            {v === "table" ? "Tabel" : "Board"}
-          </button>
-        ))}
-      </div>
-
-      {view === "board" ? (
-        <KolBoard rows={rows} onEdit={openEdit} />
-      ) : (
       <div className="overflow-x-auto rounded-xl border bg-card shadow-card">
         <Table>
           <TableHeader>
@@ -318,19 +295,26 @@ export function KolView({
                     </TableCell>
                   )}
                   <TableCell className="font-medium">
-                    {r.linkPost || r.igLink || r.tiktokLink ? (
-                      <a
-                        href={r.linkPost || r.igLink || r.tiktokLink || "#"}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 hover:underline"
+                    <span className="inline-flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => openEdit(r)}
+                        className="text-left hover:underline"
                       >
                         {r.username}
-                        <ExternalLink className="size-3 text-muted-foreground" />
-                      </a>
-                    ) : (
-                      r.username
-                    )}
+                      </button>
+                      {(r.linkPost || r.igLink || r.tiktokLink) && (
+                        <a
+                          href={r.linkPost || r.igLink || r.tiktokLink || "#"}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="shrink-0 text-muted-foreground hover:text-foreground"
+                          title="Buka post"
+                        >
+                          <ExternalLink className="size-3" />
+                        </a>
+                      )}
+                    </span>
                   </TableCell>
                   <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
                     {kfmt(r.igFollowers)} IG · {kfmt(r.tiktokFollowers)} TT
@@ -371,7 +355,6 @@ export function KolView({
           </TableBody>
         </Table>
       </div>
-      )}
 
       <KolFormDialog
         open={formOpen}

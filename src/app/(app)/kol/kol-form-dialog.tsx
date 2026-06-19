@@ -90,6 +90,7 @@ export function KolFormDialog({
   const [datePost, setDatePost] = useState("");
   const [notes, setNotes] = useState("");
   const [nums, setNums] = useState<Record<NumKey, string>>(emptyNums());
+  const [scraping, setScraping] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -121,6 +122,75 @@ export function KolFormDialog({
         : emptyNums(),
     );
   }, [open, kol]);
+
+  async function handleScrape() {
+    if (!igLink.trim() && !tiktokLink.trim()) {
+      toast.error("Isi link/username IG atau TikTok dulu");
+      return;
+    }
+    setScraping(true);
+    try {
+      const res = await fetch("/api/kol/scrape", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ig: igLink, tiktok: tiktokLink }),
+      });
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}));
+        toast.error(e.error ?? "Scrape gagal");
+        return;
+      }
+      const data: {
+        ig: { followers: number; er: number | null; sampleSize: number } | null;
+        tiktok: { followers: number; er: number | null } | null;
+      } = await res.json();
+
+      setNums((s) => ({
+        ...s,
+        ...(data.ig
+          ? {
+              igFollowers: String(data.ig.followers),
+              ...(data.ig.er != null ? { igEr: String(data.ig.er) } : {}),
+            }
+          : {}),
+        ...(data.tiktok
+          ? {
+              tiktokFollowers: String(data.tiktok.followers),
+              ...(data.tiktok.er != null ? { tiktokEr: String(data.tiktok.er) } : {}),
+            }
+          : {}),
+      }));
+
+      const msgs: string[] = [];
+      if (data.ig)
+        msgs.push(
+          `IG: ${data.ig.followers.toLocaleString("id")} followers` +
+            (data.ig.er != null
+              ? `, ER ${data.ig.er}% (${data.ig.sampleSize} post)`
+              : ""),
+        );
+      else if (igLink.trim()) msgs.push("IG: gagal (akun privat/diblok/typo)");
+      if (data.tiktok)
+        msgs.push(
+          `TikTok: ${data.tiktok.followers.toLocaleString("id")} followers` +
+            (data.tiktok.er != null ? `, ~ER ${data.tiktok.er}%` : ""),
+        );
+      else if (tiktokLink.trim()) msgs.push("TikTok: gagal");
+
+      if (data.ig || data.tiktok) {
+        toast.success(msgs.join(" · "), {
+          description:
+            "Cek & edit kalau perlu. ER TikTok = estimasi (avg likes/video ÷ followers).",
+        });
+      } else {
+        toast.error(msgs.join(" · ") || "Tidak ada data");
+      }
+    } catch {
+      toast.error("Scrape error — coba lagi");
+    } finally {
+      setScraping(false);
+    }
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -230,7 +300,17 @@ export function KolFormDialog({
 
             {/* Profiles */}
             <div className="space-y-2">
-              <p className="text-xs font-medium text-muted-foreground">Profil KOL</p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-medium text-muted-foreground">Profil KOL</p>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleScrape}
+                  disabled={scraping || pending}
+                >
+                  {scraping ? "Mengambil…" : "Scrape dari link"}
+                </Button>
+              </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="kol-iglink">Link Instagram</Label>
