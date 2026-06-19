@@ -71,6 +71,48 @@
       "when": 1781773651747,
       "tag": "0009_strange_the_hunter",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1781842242129,
+      "tag": "0010_bitter_felicia_hardy",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1781846642105,
+      "tag": "0011_slow_gauntlet",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1781849232746,
+      "tag": "0012_loose_mentor",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1781849529016,
+      "tag": "0013_ancient_jackal",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1781853258888,
+      "tag": "0014_woozy_tyrannus",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1781855507046,
+      "tag": "0015_tired_lucky_pierre",
+      "breakpoints": true
     }
   ]
 }

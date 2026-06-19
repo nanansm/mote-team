@@ -111,3 +111,18 @@ export async function deadlineReminderWa(p: {
     .join("\n");
   return fillTemplate(tpl, { nama: p.name, list, link: p.url });
 }
+
+/** Stale-KOL outreach digest (KOLs stuck in outreach statuses). */
+export function kolStaleWa(p: {
+  name: string;
+  kols: { username: string; clientName: string; status: string; days: number }[];
+  url: string;
+}): string {
+  const list = p.kols
+    .map(
+      (k) =>
+        `• ${k.username} (${k.clientName}) — ${k.status}, ${k.days} hari diam`,
+    )
+    .join("\n");
+  return `Halo ${p.name}, ${p.kols.length} KOL nyangkut di outreach (belum gerak >3 hari):\n${list}\n\nFollow up: ${p.url}`;
+}

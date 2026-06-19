@@ -6,6 +6,8 @@ import { z } from "zod";
 import { db } from "@/db";
 import { client } from "@/db/schema";
 import { requireSession } from "@/lib/session";
+import { listWindsorAccounts } from "@/lib/windsor";
+import { listMetaAdAccounts, type MetaAdAccount } from "@/lib/meta";
 
 const clientInput = z.object({
   name: z.string().trim().min(1, "Nama klien wajib diisi"),
@@ -14,6 +16,8 @@ const clientInput = z.object({
   logoUrl: z.string().trim().nullish(),
   windsorAccountId: z.string().trim().nullish(),
   windsorTiktokId: z.string().trim().nullish(),
+  windsorGmbId: z.string().trim().nullish(),
+  metaAdAccountId: z.string().trim().nullish(),
   notes: z.string().trim().max(10000, "Catatan terlalu panjang").nullish(),
 });
 
@@ -32,8 +36,31 @@ function toValues(input: ClientInput) {
     logoUrl: input.logoUrl ? input.logoUrl : null,
     windsorAccountId: input.windsorAccountId ? input.windsorAccountId : null,
     windsorTiktokId: input.windsorTiktokId ? input.windsorTiktokId : null,
+    windsorGmbId: input.windsorGmbId ? input.windsorGmbId : null,
+    metaAdAccountId: input.metaAdAccountId ? input.metaAdAccountId : null,
     notes: input.notes ? input.notes : null,
   };
+}
+
+export type ConnectorOptions = {
+  ig: string[];
+  tiktok: string[];
+  gmb: string[];
+  meta: MetaAdAccount[];
+};
+
+/**
+ * Live connector accounts for the client form dropdowns. Each source returns
+ * [] when unconfigured/down, so the form degrades to a disabled select with a
+ * hint rather than breaking.
+ */
+export async function getConnectorOptions(): Promise<ConnectorOptions> {
+  await requireSession();
+  const [windsor, meta] = await Promise.all([
+    listWindsorAccounts(),
+    listMetaAdAccounts(),
+  ]);
+  return { ig: windsor.ig, tiktok: windsor.tiktok, gmb: windsor.gmb, meta };
 }
 
 export async function createClient(raw: ClientInput): Promise<ActionResult> {

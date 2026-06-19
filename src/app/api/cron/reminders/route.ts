@@ -1,17 +1,35 @@
-import { and, eq, isNotNull, lte, notInArray } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, lte, notInArray } from "drizzle-orm";
 import { db } from "@/db";
-import { client, task, taskAssignee, teamMember, user } from "@/db/schema";
+import {
+  client,
+  kolActivation,
+  task,
+  taskAssignee,
+  teamMember,
+  user,
+} from "@/db/schema";
 import { env } from "@/lib/env";
 import { deadlineReminderEmail, isMailerConfigured, sendMail } from "@/lib/mailer";
 import {
   deadlineReminderWa,
   isWhatsAppConfigured,
+  kolStaleWa,
   sendWhatsApp,
 } from "@/lib/whatsapp";
+import { KOL_STATUS_LABEL } from "@/lib/kol";
 import { ymdOffset } from "@/lib/tz";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+// Outreach statuses where a KOL going quiet for days = a dropped follow-up.
+const KOL_OUTREACH = [
+  "belum_bales_dm",
+  "sudah_bales_dm",
+  "minta_rate_card",
+  "nego",
+] as const;
+const KOL_STALE_DAYS = 3;
 
 /**
  * Deadline reminder job. Trigger daily via external cron:
@@ -103,10 +121,66 @@ export async function GET(req: Request) {
     }
   }
 
+  // --- Stale KOL outreach digest (WhatsApp only) -------------------------
+  // KOLs stuck in an outreach status with no update for KOL_STALE_DAYS get
+  // surfaced to the performance/growth team so follow-ups don't get dropped.
+  let kolWaSent = 0;
+  let staleKolCount = 0;
+  if (waOn) {
+    const staleBefore = new Date(Date.now() - KOL_STALE_DAYS * 86_400_000);
+    const staleKols = await db
+      .select({
+        username: kolActivation.username,
+        status: kolActivation.status,
+        updatedAt: kolActivation.updatedAt,
+        clientName: client.name,
+      })
+      .from(kolActivation)
+      .leftJoin(client, eq(kolActivation.clientId, client.id))
+      .where(
+        and(
+          inArray(kolActivation.status, KOL_OUTREACH),
+          lte(kolActivation.updatedAt, staleBefore),
+        ),
+      );
+    staleKolCount = staleKols.length;
+
+    if (staleKols.length > 0) {
+      const kols = staleKols.map((k) => ({
+        username: k.username,
+        clientName: k.clientName ?? "—",
+        status: KOL_STATUS_LABEL[k.status],
+        days: Math.floor((Date.now() - k.updatedAt.getTime()) / 86_400_000),
+      }));
+      // Recipients: active performance/growth members with a phone.
+      const handlers = await db
+        .select({ name: teamMember.name, phone: teamMember.phone })
+        .from(teamMember)
+        .where(
+          and(
+            eq(teamMember.active, true),
+            isNotNull(teamMember.phone),
+            inArray(teamMember.division, ["performance", "growth"]),
+          ),
+        );
+      const url = `${env.APP_URL}/kol`;
+      for (const h of handlers) {
+        if (!h.phone) continue;
+        const ok = await sendWhatsApp(
+          h.phone,
+          kolStaleWa({ name: h.name, kols, url }),
+        );
+        if (ok) kolWaSent++;
+      }
+    }
+  }
+
   return Response.json({
     ok: true,
     recipients: byMember.size,
     emailsSent,
     waSent,
+    staleKolCount,
+    kolWaSent,
   });
 }

@@ -69,9 +69,27 @@ export type TopPost = {
   thumbnail: string | null;
 };
 
+/** Google Business Profile (Maps) metrics — discovery + actions + reviews. */
+export type GmbSummary = {
+  impressions: number;
+  calls: number;
+  websiteClicks: number;
+  directions: number;
+  foodOrders: number;
+  /** Total average star rating (snapshot, not windowed). */
+  rating: number;
+  /** Total review count (snapshot). */
+  reviews: number;
+};
+
 export type ClientPerformance = {
   ig?: { current: PlatformSummary; previous: PlatformSummary; top: TopPost[] };
-  tiktok?: { current: PlatformSummary; previous: PlatformSummary };
+  tiktok?: {
+    current: PlatformSummary;
+    previous: PlatformSummary;
+    top: TopPost[];
+  };
+  gmb?: { current: GmbSummary; previous: GmbSummary };
 };
 
 function groupByAccount(rows: Row[]): Map<string, Row[]> {
@@ -96,6 +114,7 @@ const er = (engagement: number, reach: number) =>
 export async function getAllOrganic(range: ResolvedRange): Promise<{
   ig: Map<string, ClientPerformance["ig"]>;
   tiktok: Map<string, ClientPerformance["tiktok"]>;
+  gmb: Map<string, ClientPerformance["gmb"]>;
 }> {
   const { current, previous, includeFollowerDelta } = range;
 
@@ -106,6 +125,11 @@ export async function getAllOrganic(range: ResolvedRange): Promise<{
     ...(includeFollowerDelta ? ["follower_count_1d"] : []),
   ];
 
+  const gmbFields = [
+    "account_name", "date", "impressions", "call_clicks", "website_clicks",
+    "direction_requests", "business_food_orders",
+  ];
+
   const [
     igCur,
     igPrev,
@@ -114,6 +138,10 @@ export async function getAllOrganic(range: ResolvedRange): Promise<{
     ttCur,
     ttPrev,
     ttFollowers,
+    ttMedia,
+    gmbCur,
+    gmbPrev,
+    gmbReviews,
   ] = await Promise.all([
     safe(fetchRows("instagram", igCurFields, current)),
     safe(fetchRows("instagram", ["account_name", "date", "reach", "views", "total_interactions"], previous)),
@@ -122,6 +150,10 @@ export async function getAllOrganic(range: ResolvedRange): Promise<{
     safe(fetchRows("tiktok_organic", ["account_name", "date", "unique_video_views", "video_views", "likes", "comments", "shares", "followers_count"], current)),
     safe(fetchRows("tiktok_organic", ["account_name", "date", "unique_video_views", "video_views", "likes", "comments", "shares", "followers_count"], previous)),
     safe(fetchRows("tiktok_organic", ["account_name", "total_followers_count"])),
+    safe(fetchRows("tiktok_organic", ["account_name", "video_share_url", "video_thumbnail_url", "video_reach", "video_likes", "video_comments", "video_shares", "video_create_datetime"], current)),
+    safe(fetchRows("google_my_business", gmbFields, current)),
+    safe(fetchRows("google_my_business", gmbFields, previous)),
+    safe(fetchRows("google_my_business", ["account_name", "review_average_rating_total", "review_total_count"])),
   ]);
 
   const igFollowerMap = new Map<string, number>();
@@ -173,19 +205,84 @@ export async function getAllOrganic(range: ResolvedRange): Promise<{
     });
   }
 
+  const ttMediaByAcc = groupByAccount(ttMedia);
   const tiktok = new Map<string, ClientPerformance["tiktok"]>();
   for (const name of ttCurByAcc.keys()) {
     const followers = ttFollowerMap.get(name) ?? 0;
+    const top: TopPost[] = (ttMediaByAcc.get(name) ?? [])
+      .map((r) => ({
+        permalink: String(r.video_share_url ?? ""),
+        type: "video",
+        engagement:
+          num(r.video_likes) + num(r.video_comments) + num(r.video_shares),
+        reach: num(r.video_reach),
+        thumbnail: r.video_thumbnail_url ? String(r.video_thumbnail_url) : null,
+      }))
+      .sort((a, b) => b.engagement - a.engagement)
+      .slice(0, 3);
     tiktok.set(name, {
       current: ttSummary(ttCurByAcc.get(name) ?? [], followers),
       previous: ttSummary(ttPrevByAcc.get(name) ?? [], followers),
+      top,
     });
   }
 
-  return { ig, tiktok };
+  // GMB: review rating/count are account-wide snapshots (not windowed), so we
+  // look them up once and attach the same value to both periods.
+  const gmbRatingMap = new Map<string, { rating: number; reviews: number }>();
+  for (const r of gmbReviews) {
+    gmbRatingMap.set(String(r.account_name), {
+      rating: num(r.review_average_rating_total),
+      reviews: num(r.review_total_count),
+    });
+  }
+  const gmbSummary = (rows: Row[], name: string): GmbSummary => {
+    const review = gmbRatingMap.get(name) ?? { rating: 0, reviews: 0 };
+    return {
+      impressions: rows.reduce((s, r) => s + num(r.impressions), 0),
+      calls: rows.reduce((s, r) => s + num(r.call_clicks), 0),
+      websiteClicks: rows.reduce((s, r) => s + num(r.website_clicks), 0),
+      directions: rows.reduce((s, r) => s + num(r.direction_requests), 0),
+      foodOrders: rows.reduce((s, r) => s + num(r.business_food_orders), 0),
+      rating: review.rating,
+      reviews: review.reviews,
+    };
+  };
+  const gmbCurByAcc = groupByAccount(gmbCur);
+  const gmbPrevByAcc = groupByAccount(gmbPrev);
+  const gmb = new Map<string, ClientPerformance["gmb"]>();
+  for (const name of gmbCurByAcc.keys()) {
+    gmb.set(name, {
+      current: gmbSummary(gmbCurByAcc.get(name) ?? [], name),
+      previous: gmbSummary(gmbPrevByAcc.get(name) ?? [], name),
+    });
+  }
+
+  return { ig, tiktok, gmb };
 }
 
-export function deltaPct(current: number, previous: number): number | null {
-  if (!previous) return null;
-  return Math.round(((current - previous) / previous) * 100);
+/**
+ * List the distinct `account_name`s Windsor currently exposes per connector,
+ * so the client form can offer them as a dropdown instead of a typed slug.
+ * Returns [] for a connector that is unconfigured or down (anti-stuck).
+ */
+export async function listWindsorAccounts(): Promise<{
+  ig: string[];
+  tiktok: string[];
+  gmb: string[];
+}> {
+  const key = await getWindsorKey();
+  if (!key) return { ig: [], tiktok: [], gmb: [] };
+  const [igRows, ttRows, gmbRows] = await Promise.all([
+    safe(fetchRows("instagram", ["account_name"])),
+    safe(fetchRows("tiktok_organic", ["account_name"])),
+    safe(fetchRows("google_my_business", ["account_name"])),
+  ]);
+  const uniq = (rows: Row[]) =>
+    [
+      ...new Set(
+        rows.map((r) => String(r.account_name ?? "")).filter(Boolean),
+      ),
+    ].sort((a, b) => a.localeCompare(b));
+  return { ig: uniq(igRows), tiktok: uniq(ttRows), gmb: uniq(gmbRows) };
 }

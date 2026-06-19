@@ -19,6 +19,6 @@ export const config = {
   matcher: [
     // Protect everything except auth pages, auth/health APIs, Next internals,
     // and any static file (path containing a dot, e.g. /brand/logo.png).
-    "/((?!sign-in|accept-invite|reset-password|api/auth|api/health|api/cron|_next/static|_next/image|favicon.ico|.*\\..*).*)",
+    "/((?!sign-in|accept-invite|reset-password|approve|api/auth|api/health|api/cron|_next/static|_next/image|favicon.ico|.*\\..*).*)",
   ],
 };

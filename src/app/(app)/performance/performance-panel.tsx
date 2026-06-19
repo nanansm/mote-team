@@ -5,25 +5,20 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   ExternalLink,
+  MapPin,
   Megaphone,
 } from "lucide-react";
-import { InstagramIcon, TiktokIcon } from "@/components/channel-icons";
+import {
+  InstagramIcon,
+  MetaIcon,
+  TiktokIcon,
+} from "@/components/channel-icons";
 import { MiniChart } from "@/components/mini-chart";
 import { cn } from "@/lib/utils";
-import type { PlatformSummary } from "@/lib/windsor";
+import { deltaPct, fmtNum as fmt, rp } from "@/lib/format";
+import type { PlatformSummary, TopPost } from "@/lib/windsor";
 import { MetaRangeFilter } from "./meta-range-filter";
-import type { ClientData, IgData, TiktokData } from "./types";
-
-const fmt = (n: number) => n.toLocaleString("id-ID");
-const rp = (n: number) =>
-  n >= 1_000_000
-    ? `Rp${(n / 1_000_000).toFixed(1)}jt`
-    : `Rp${n.toLocaleString("id-ID")}`;
-
-function deltaPct(cur: number, prev: number): number | null {
-  if (!prev) return null;
-  return Math.round(((cur - prev) / prev) * 100);
-}
+import type { ClientData, GmbData, IgData, KolData, TiktokData } from "./types";
 
 function DeltaPill({ cur, prev }: { cur: number; prev: number }) {
   const d = deltaPct(cur, prev);
@@ -72,19 +67,15 @@ function SectionHeader({
   icon,
   name,
   badge,
-  color,
 }: {
   icon: React.ReactNode;
   name: string;
   badge?: string;
-  color: string;
 }) {
   return (
     <div className="flex items-center justify-between">
       <span className="flex items-center gap-2 text-sm font-semibold">
-        <span className={cn("grid size-7 place-items-center rounded-md", color)}>
-          {icon}
-        </span>
+        <span className="text-muted-foreground">{icon}</span>
         {name}
       </span>
       {badge && (
@@ -114,40 +105,44 @@ function OrganicGrid({
   );
 }
 
+function TopPosts({ posts }: { posts: TopPost[] }) {
+  if (posts.length === 0) return null;
+  return (
+    <div>
+      <p className="mb-1.5 text-xs font-medium text-muted-foreground">Top posts</p>
+      <div className="grid gap-1.5 sm:grid-cols-3">
+        {posts.map((p, i) => (
+          <a
+            key={i}
+            href={p.permalink}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center justify-between rounded-lg border bg-background px-3 py-2 text-sm transition-colors hover:bg-accent"
+          >
+            <span className="flex items-center gap-2">
+              <span className="grid size-5 place-items-center rounded bg-primary/10 text-[11px] font-semibold text-primary">
+                {i + 1}
+              </span>
+              <span className="text-xs text-muted-foreground">{fmt(p.engagement)} eng</span>
+            </span>
+            <ExternalLink className="size-3.5 text-muted-foreground" />
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function IgSection({ ig }: { ig: IgData }) {
   return (
     <div className="space-y-3">
       <SectionHeader
-        icon={<InstagramIcon className="size-4 text-white" />}
+        icon={<InstagramIcon className="size-4" />}
         name="Instagram"
         badge={`${fmt(ig.current.followers)} followers`}
-        color="bg-gradient-to-tr from-amber-500 via-pink-500 to-purple-600 text-white"
       />
       <OrganicGrid cur={ig.current} prev={ig.previous} />
-      {ig.top.length > 0 && (
-        <div>
-          <p className="mb-1.5 text-xs font-medium text-muted-foreground">Top posts</p>
-          <div className="grid gap-1.5 sm:grid-cols-3">
-            {ig.top.map((p, i) => (
-              <a
-                key={i}
-                href={p.permalink}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center justify-between rounded-lg border bg-background px-3 py-2 text-sm transition-colors hover:bg-accent"
-              >
-                <span className="flex items-center gap-2">
-                  <span className="grid size-5 place-items-center rounded bg-primary/10 text-[11px] font-semibold text-primary">
-                    {i + 1}
-                  </span>
-                  <span className="text-xs text-muted-foreground">{fmt(p.engagement)} eng</span>
-                </span>
-                <ExternalLink className="size-3.5 text-muted-foreground" />
-              </a>
-            ))}
-          </div>
-        </div>
-      )}
+      <TopPosts posts={ig.top} />
     </div>
   );
 }
@@ -156,12 +151,38 @@ function TiktokSection({ tiktok }: { tiktok: TiktokData }) {
   return (
     <div className="space-y-3 border-t pt-5">
       <SectionHeader
-        icon={<TiktokIcon className="size-4 text-white" />}
+        icon={<TiktokIcon className="size-4" />}
         name="TikTok"
         badge={`${fmt(tiktok.current.followers)} followers`}
-        color="bg-black text-white"
       />
       <OrganicGrid cur={tiktok.current} prev={tiktok.previous} />
+      <TopPosts posts={tiktok.top} />
+    </div>
+  );
+}
+
+function GmbSection({ gmb }: { gmb: GmbData }) {
+  const cur = gmb.current;
+  const prev = gmb.previous;
+  return (
+    <div className="space-y-3 border-t pt-5">
+      <SectionHeader
+        icon={<MapPin className="size-4" />}
+        name="Google Maps"
+        badge={
+          cur.reviews > 0
+            ? `${cur.rating.toFixed(1)} ★ · ${fmt(cur.reviews)} review`
+            : undefined
+        }
+      />
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
+        <Tile label="Impressions" value={fmt(cur.impressions)} cur={cur.impressions} prev={prev.impressions} />
+        <Tile label="Calls" value={fmt(cur.calls)} cur={cur.calls} prev={prev.calls} />
+        <Tile label="Directions" value={fmt(cur.directions)} cur={cur.directions} prev={prev.directions} />
+        <Tile label="Website" value={fmt(cur.websiteClicks)} cur={cur.websiteClicks} prev={prev.websiteClicks} />
+        <Tile label="Food orders" value={fmt(cur.foodOrders)} cur={cur.foodOrders} prev={prev.foodOrders} />
+        <Tile label="Rating" value={cur.reviews > 0 ? `${cur.rating.toFixed(1)}★` : "—"} />
+      </div>
     </div>
   );
 }
@@ -172,18 +193,25 @@ function MetaSection({ meta }: { meta: ClientData["meta"] }) {
   return (
     <div className="space-y-3 border-t pt-5">
       <SectionHeader
-        icon={<Megaphone className="size-4 text-white" />}
+        icon={<MetaIcon className="size-4" />}
         name="Meta Ads"
         badge={`${rp(s.spend)} spend`}
-        color="bg-blue-600 text-white"
       />
+      {/* Tiles ordered as a funnel: budget → awareness → engagement →
+          traffic → landing → conversion (each volume next to its cost/rate). */}
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
         <Tile label="Spend" value={rp(s.spend)} />
-        <Tile label="Reach" value={fmt(s.reach)} />
         <Tile label="Impressions" value={fmt(s.impressions)} />
+        <Tile label="Reach" value={fmt(s.reach)} />
+        <Tile label="CPM" value={rp(s.cpm)} />
+        <Tile label="Engagement" value={fmt(s.engagement)} />
+        <Tile label="Eng. Rate" value={`${s.er}%`} />
         <Tile label="Clicks" value={fmt(s.clicks)} />
         <Tile label="CTR" value={`${s.ctr}%`} />
+        <Tile label="CPC" value={rp(s.cpc)} />
+        <Tile label="LP Views" value={fmt(s.landingPageViews)} />
         <Tile label="Leads (WA)" value={fmt(s.leads)} />
+        <Tile label="CPL" value={s.cpl === null ? "—" : rp(s.cpl)} />
       </div>
       <div className="rounded-lg border bg-background p-3">
         <p className="mb-1 text-[11px] uppercase tracking-wide text-muted-foreground">
@@ -195,6 +223,67 @@ function MetaSection({ meta }: { meta: ClientData["meta"] }) {
   );
 }
 
+function KolSection({ kol }: { kol: KolData }) {
+  const a = kol.aggregate;
+  return (
+    <div className="space-y-3 border-t pt-5">
+      <SectionHeader
+        icon={<Megaphone className="size-4" />}
+        name="KOL"
+        badge={`${rp(a.totalCost)} spend`}
+      />
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
+        <Tile label="KOL" value={fmt(a.kolCount)} />
+        <Tile label="Post" value={fmt(a.postCount)} />
+        <Tile label="Reach" value={fmt(a.reach)} />
+        <Tile label="Impressions" value={fmt(a.impressions)} />
+        <Tile label="Interaction" value={fmt(a.interaction)} />
+        <Tile label="ER %" value={`${a.er}%`} />
+        <Tile label="Total Cost" value={rp(a.totalCost)} />
+        <Tile label="CPE" value={rp(a.cpe)} />
+        <Tile label="CPV" value={rp(a.cpv)} />
+      </div>
+      {kol.top.length > 0 && (
+        <div>
+          <p className="mb-1.5 text-xs font-medium text-muted-foreground">
+            Top 3 post (by interaction)
+          </p>
+          <div className="grid gap-1.5 sm:grid-cols-3">
+            {kol.top.map((p, i) => (
+              <div
+                key={p.id}
+                className="flex items-center justify-between rounded-lg border bg-background px-3 py-2 text-sm"
+              >
+                <span className="flex min-w-0 items-center gap-2">
+                  <span className="grid size-5 shrink-0 place-items-center rounded bg-primary/10 text-[11px] font-semibold text-primary">
+                    {i + 1}
+                  </span>
+                  <span className="truncate">
+                    <span className="font-medium">{p.username}</span>{" "}
+                    <span className="text-xs text-muted-foreground">
+                      {fmt(p.interaction)} int
+                    </span>
+                  </span>
+                </span>
+                {p.link && (
+                  <a
+                    href={p.link}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="shrink-0 text-muted-foreground hover:text-foreground"
+                  >
+                    <ExternalLink className="size-3.5" />
+                  </a>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function PerformancePanel({
   clients,
   windsorConfigured,
@@ -202,6 +291,8 @@ export function PerformancePanel({
   rangeValue,
   rangeFrom,
   rangeTo,
+  currentLabel,
+  previousLabel,
 }: {
   clients: ClientData[];
   windsorConfigured: boolean;
@@ -209,6 +300,8 @@ export function PerformancePanel({
   rangeValue: string;
   rangeFrom?: string;
   rangeTo?: string;
+  currentLabel: string;
+  previousLabel: string;
 }) {
   const [active, setActive] = useState(0);
 
@@ -261,12 +354,27 @@ export function PerformancePanel({
         )}
       </div>
 
+      {/* Explicit window + freshness so the numbers are never ambiguous. */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+        <span>
+          Data: <span className="font-medium text-foreground">{currentLabel}</span>{" "}
+          · vs {previousLabel}
+        </span>
+        <span className="hidden sm:inline">·</span>
+        <span>
+          Organic &amp; Maps via Windsor (sinkron berkala) · Meta Ads ~real-time
+          · cache 30 mnt
+        </span>
+      </div>
+
       <div className="space-y-5 rounded-xl border bg-card p-5 shadow-card">
         <h3 className="font-semibold">{c.name}</h3>
         {c.ig && <IgSection ig={c.ig} />}
         {c.tiktok && <TiktokSection tiktok={c.tiktok} />}
+        {c.gmb && <GmbSection gmb={c.gmb} />}
         {c.meta && <MetaSection meta={c.meta} />}
-        {!c.ig && !c.tiktok && !c.meta && (
+        {c.kol && <KolSection kol={c.kol} />}
+        {!c.ig && !c.tiktok && !c.gmb && !c.meta && !c.kol && (
           <p className="text-sm text-muted-foreground">
             Tidak ada data untuk klien ini.
           </p>

@@ -24,7 +24,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { ClientRow, ClientStatus } from "@/lib/types";
-import { createClient, updateClient } from "./actions";
+import {
+  createClient,
+  getConnectorOptions,
+  updateClient,
+  type ConnectorOptions,
+} from "./actions";
 
 type Props = {
   open: boolean;
@@ -38,6 +43,77 @@ const STATUS_OPTIONS: { value: ClientStatus; label: string }[] = [
   { value: "offboarding", label: "Offboarding" },
 ];
 
+const EMPTY_OPTIONS: ConnectorOptions = { ig: [], tiktok: [], gmb: [], meta: [] };
+
+// Sentinel for the "clear" item — base-ui Select treats this as a normal value,
+// which we map back to "" (no mapping) on change.
+const NONE = "__none__";
+type Opt = { value: string; label: string };
+
+/**
+ * A connector dropdown fed by live accounts. Disabled with a hint when the
+ * source returned nothing (connector not yet connected). Keeps the currently
+ * saved value selectable even if it has dropped out of the live list, so
+ * editing never silently clears a working mapping.
+ */
+function ConnectorSelect({
+  id,
+  label,
+  value,
+  onChange,
+  options,
+  loading,
+  emptyHint,
+  placeholder,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: Opt[];
+  loading: boolean;
+  emptyHint: string;
+  placeholder: string;
+}) {
+  const opts =
+    value && !options.some((o) => o.value === value)
+      ? [{ value, label: value }, ...options]
+      : options;
+  const empty = !loading && options.length === 0;
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={id}>{label}</Label>
+      <Select
+        value={value || NONE}
+        onValueChange={(v) => onChange(v && v !== NONE ? v : "")}
+        disabled={loading || empty}
+      >
+        <SelectTrigger id={id} className="w-full">
+          <SelectValue>
+            {(v) =>
+              v && v !== NONE
+                ? (opts.find((o) => o.value === v)?.label ?? v)
+                : loading
+                  ? "Memuat…"
+                  : empty
+                    ? emptyHint
+                    : placeholder
+            }
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={NONE}>— Kosongkan —</SelectItem>
+          {opts.map((o) => (
+            <SelectItem key={o.value} value={o.value}>
+              {o.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
 export function ClientFormDialog({ open, onOpenChange, client }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -49,8 +125,12 @@ export function ClientFormDialog({ open, onOpenChange, client }: Props) {
   const [logoUrl, setLogoUrl] = useState("");
   const [windsorAccountId, setWindsorAccountId] = useState("");
   const [windsorTiktokId, setWindsorTiktokId] = useState("");
+  const [windsorGmbId, setWindsorGmbId] = useState("");
+  const [metaAdAccountId, setMetaAdAccountId] = useState("");
   const [notes, setNotes] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [options, setOptions] = useState<ConnectorOptions>(EMPTY_OPTIONS);
+  const [loadingOptions, setLoadingOptions] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Reset fields whenever the dialog opens (for create or a specific edit row).
@@ -62,8 +142,31 @@ export function ClientFormDialog({ open, onOpenChange, client }: Props) {
     setLogoUrl(client?.logoUrl ?? "");
     setWindsorAccountId(client?.windsorAccountId ?? "");
     setWindsorTiktokId(client?.windsorTiktokId ?? "");
+    setWindsorGmbId(client?.windsorGmbId ?? "");
+    setMetaAdAccountId(client?.metaAdAccountId ?? "");
     setNotes(client?.notes ?? "");
   }, [open, client]);
+
+  // Lazy-load connector accounts only when the dialog is open, so the Clients
+  // page itself never waits on Windsor/Meta.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    setLoadingOptions(true);
+    getConnectorOptions()
+      .then((opts) => {
+        if (!cancelled) setOptions(opts);
+      })
+      .catch(() => {
+        if (!cancelled) setOptions(EMPTY_OPTIONS);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingOptions(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
 
   async function handleLogo(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -94,6 +197,8 @@ export function ClientFormDialog({ open, onOpenChange, client }: Props) {
       logoUrl,
       windsorAccountId,
       windsorTiktokId,
+      windsorGmbId,
+      metaAdAccountId,
       notes,
     };
     startTransition(async () => {
@@ -224,28 +329,55 @@ export function ClientFormDialog({ open, onOpenChange, client }: Props) {
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="windsor-ig">Windsor IG account name</Label>
-                <Input
-                  id="windsor-ig"
-                  value={windsorAccountId}
-                  onChange={(e) => setWindsorAccountId(e.target.value)}
-                  placeholder="mis. rancabango_hotel"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="windsor-tt">Windsor TikTok account name</Label>
-                <Input
-                  id="windsor-tt"
-                  value={windsorTiktokId}
-                  onChange={(e) => setWindsorTiktokId(e.target.value)}
-                  placeholder="mis. RancabangoHotelResortGarut"
-                />
-              </div>
+              <ConnectorSelect
+                id="windsor-ig"
+                label="Windsor IG account"
+                value={windsorAccountId}
+                onChange={setWindsorAccountId}
+                options={options.ig.map((v) => ({ value: v, label: v }))}
+                loading={loadingOptions}
+                emptyHint="Belum ada akun IG"
+                placeholder="Pilih akun IG"
+              />
+              <ConnectorSelect
+                id="windsor-tt"
+                label="Windsor TikTok account"
+                value={windsorTiktokId}
+                onChange={setWindsorTiktokId}
+                options={options.tiktok.map((v) => ({ value: v, label: v }))}
+                loading={loadingOptions}
+                emptyHint="Belum ada akun TikTok"
+                placeholder="Pilih akun TikTok"
+              />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <ConnectorSelect
+                id="meta-ad"
+                label="Meta Ad Account"
+                value={metaAdAccountId}
+                onChange={setMetaAdAccountId}
+                options={options.meta.map((m) => ({
+                  value: m.id,
+                  label: m.name,
+                }))}
+                loading={loadingOptions}
+                emptyHint="Belum ada Ad Account"
+                placeholder="Pilih Ad Account"
+              />
+              <ConnectorSelect
+                id="windsor-gmb"
+                label="Google Maps (GMB)"
+                value={windsorGmbId}
+                onChange={setWindsorGmbId}
+                options={options.gmb.map((v) => ({ value: v, label: v }))}
+                loading={loadingOptions}
+                emptyHint="Belum ada akun GMB"
+                placeholder="Pilih lokasi GMB"
+              />
             </div>
             <p className="-mt-2 text-xs text-muted-foreground">
-              Untuk menarik performa organic di menu Performance (account_name
-              persis dari Windsor).
+              Daftar diambil langsung dari akun yang sudah terhubung di
+              Windsor/Meta. Untuk menarik performa di menu Performance.
             </p>
 
             <div className="space-y-2">

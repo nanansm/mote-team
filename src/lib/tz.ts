@@ -59,3 +59,21 @@ export function ymdOffset(days: number, from: Date = new Date()): string {
 export function firstOfMonth(year: number, month: number): string {
   return `${year}-${String(month).padStart(2, "0")}-01`;
 }
+
+// Human-readable date in WIB, Indonesian short month (e.g. "1 Jun 2026").
+const longFmt = new Intl.DateTimeFormat("id-ID", {
+  timeZone: TZ,
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+});
+
+/** Format a YMD string as a readable WIB date ("1 Jun 2026"). */
+export function formatDateJakarta(ymd: string): string {
+  return longFmt.format(jakartaMidnight(ymd));
+}
+
+/** Format a YMD window as "1 Jun 2026 – 19 Jun 2026" (WIB). */
+export function formatRangeJakarta(from: string, to: string): string {
+  return `${formatDateJakarta(from)} – ${formatDateJakarta(to)}`;
+}

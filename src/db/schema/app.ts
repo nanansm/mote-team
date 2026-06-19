@@ -32,6 +32,26 @@ export const taskStatus = moteteam.enum("task_status", [
 
 export const typeContent = moteteam.enum("type_content", ["carousel", "reels"]);
 
+// Client-facing content approval state (shared via public token link).
+export const approvalStatus = moteteam.enum("approval_status", [
+  "pending",
+  "approved",
+  "revision",
+]);
+
+// KOL outreach → activation pipeline (mirrors the team's tracking sheet).
+export const kolStatus = moteteam.enum("kol_status", [
+  "belum_bales_dm",
+  "sudah_bales_dm",
+  "minta_rate_card",
+  "nego",
+  "deal",
+  "mau_datang_review",
+  "sudah_posting",
+  "sudah_review",
+  "cancel",
+]);
+
 // Additive vs PRD: Notion Team Directory tracks division. Kept so we don't
 // migrate again later (PRD 5.3 allows additive).
 export const teamDivision = moteteam.enum("team_division", [
@@ -52,6 +72,7 @@ export const client = moteteam.table("client", {
   // Windsor.ai account names (per platform) for pulling organic performance.
   windsorAccountId: text("windsor_account_id"), // Instagram account_name
   windsorTiktokId: text("windsor_tiktok_id"), // TikTok account_name
+  windsorGmbId: text("windsor_gmb_id"), // Google My Business account_name (Maps)
   // Meta Ads account id (without act_ prefix) for paid performance via Graph API.
   metaAdAccountId: text("meta_ad_account_id"),
   // Free-form notes/links for the team (briefs, drive links, brand guides).
@@ -115,6 +136,10 @@ export const task = moteteam.table("task", {
     () => monthlyPerformance.id,
     { onDelete: "set null" },
   ),
+  // Client approval (token set only when shared; status/note set when client acts).
+  approvalToken: text("approval_token").unique(),
+  approvalStatus: approvalStatus("approval_status"),
+  approvalNote: text("approval_note"),
   createdBy: uuid("created_by").references(() => teamMember.id, {
     onDelete: "set null",
   }),
@@ -220,4 +245,80 @@ export const taskTemplate = moteteam.table(
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (t) => [index("task_template_client_idx").on(t.clientId)],
+);
+
+// KOL activation: one row = one KOL collaboration (spanning IG + TikTok),
+// team-entered (no API source — mirrors their Google Sheet). Derived metrics
+// (interaction, total cost, ER%, CPE, CPV) are computed in code, never stored.
+export const kolActivation = moteteam.table(
+  "kol_activation",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => client.id, { onDelete: "cascade" }),
+    period: text("period").notNull(), // month, e.g. "2026-06"
+    status: kolStatus("status").notNull().default("belum_bales_dm"),
+    username: text("username").notNull(),
+    // Pre-collab profile (per platform, often partial).
+    igLink: text("ig_link"),
+    igFollowers: integer("ig_followers"),
+    igEr: numeric("ig_er"), // organic ER %
+    tiktokLink: text("tiktok_link"),
+    tiktokFollowers: integer("tiktok_followers"),
+    tiktokEr: numeric("tiktok_er"),
+    placement: text("placement"), // e.g. "Reels & Tiktok"
+    linkPost: text("link_post"),
+    datePost: date("date_post"),
+    // Cost — kept separate, summed in code to total (= "Product & Cost").
+    fee: numeric("fee").default("0").notNull(), // rate card / cash (Rp)
+    productCost: numeric("product_cost").default("0").notNull(), // product value (Rp)
+    // After-post results (combined IG + TikTok).
+    reach: integer("reach").default(0).notNull(), // audience reach
+    impressions: integer("impressions").default(0).notNull(), // content impression
+    likes: integer("likes").default(0).notNull(),
+    comments: integer("comments").default(0).notNull(),
+    shares: integer("shares").default(0).notNull(),
+    saves: integer("saves").default(0).notNull(),
+    notes: text("notes"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [index("kol_client_period_idx").on(t.clientId, t.period)],
+);
+
+// Client revenue + manual monthly metrics: one row per client per month,
+// team-entered. Feeds the head dashboard's Real Omset + manual funnel metrics
+// (page view, OTA clicks) that no API tracks. Table name kept (`offline_metric`)
+// for migration safety; old foot-traffic columns left unused (additive only).
+export const offlineMetric = moteteam.table(
+  "offline_metric",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    clientId: uuid("client_id")
+      .notNull()
+      .references(() => client.id, { onDelete: "cascade" }),
+    period: text("period").notNull(), // month, e.g. "2026-06"
+    // Revenue inputs.
+    targetOmset: numeric("target_omset").default("0").notNull(), // Rp
+    revenue: numeric("revenue").default("0").notNull(), // Rp
+    numberOfBill: integer("number_of_bill").default(0).notNull(),
+    // Optional manual funnel metrics (vary per client — shown on dashboard only
+    // when filled). Hotel: page view / OTA / WhatsApp clicks; F&B/online:
+    // conversion + revenue online.
+    pageView: integer("page_view"),
+    clickOta: integer("click_ota"),
+    clickWhatsapp: integer("click_whatsapp"),
+    conversionOnline: integer("conversion_online"),
+    revenueOnline: numeric("revenue_online"),
+    notes: text("notes"),
+    // --- legacy (unused, kept for additive migration) ---
+    covers: integer("covers").default(0).notNull(),
+    reservations: integer("reservations").default(0).notNull(),
+    walkins: integer("walkins").default(0).notNull(),
+    promoRedemptions: integer("promo_redemptions").default(0).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [index("offline_client_period_idx").on(t.clientId, t.period)],
 );

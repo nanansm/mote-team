@@ -1,12 +1,14 @@
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, lte } from "drizzle-orm";
 import { PageHeader } from "@/components/page-header";
 import { db } from "@/db";
-import { client } from "@/db/schema";
+import { client, kolActivation } from "@/db/schema";
 import { resolveCustom, resolveRange } from "@/lib/date-range";
+import { formatRangeJakarta } from "@/lib/tz";
+import { aggregateKol, topKolPosts } from "@/lib/kol";
 import { getMetaPerf, isMetaConfigured, type MetaPerf } from "@/lib/meta";
 import { getAllOrganic, isWindsorConfigured } from "@/lib/windsor";
 import { PerformancePanel } from "./performance-panel";
-import type { ClientData } from "./types";
+import type { ClientData, KolData } from "./types";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +30,7 @@ export default async function PerformancePage({
       name: client.name,
       ig: client.windsorAccountId,
       tiktok: client.windsorTiktokId,
+      gmb: client.windsorGmbId,
       meta: client.metaAdAccountId,
     })
     .from(client)
@@ -66,15 +69,50 @@ export default async function PerformancePage({
     metaById.set(c.id, r && r.status === "fulfilled" ? r.value : null);
   });
 
+  // KOL: team-entered, keyed by month (YYYY-MM). Pull every row whose month
+  // falls inside the selected window, then aggregate per client.
+  const fromMonth = resolved.current.from.slice(0, 7);
+  const toMonth = resolved.current.to.slice(0, 7);
+  const clientIds = clients.map((c) => c.id);
+  const kolRows = clientIds.length
+    ? await db
+        .select()
+        .from(kolActivation)
+        .where(
+          and(
+            inArray(kolActivation.clientId, clientIds),
+            gte(kolActivation.period, fromMonth),
+            lte(kolActivation.period, toMonth),
+          ),
+        )
+    : [];
+  const kolByClient = new Map<string, KolData>();
+  for (const id of clientIds) {
+    const rows = kolRows.filter((r) => r.clientId === id);
+    if (rows.length === 0) continue;
+    kolByClient.set(id, {
+      aggregate: aggregateKol(rows),
+      top: topKolPosts(rows).map((p) => ({
+        id: p.id,
+        username: p.username,
+        link: p.linkPost,
+        interaction: p.interaction,
+        er: p.er,
+      })),
+    });
+  }
+
   const data: ClientData[] = clients
     .map((c) => ({
       id: c.id,
       name: c.name,
       ig: c.ig ? (organic?.ig.get(c.ig) ?? null) : null,
       tiktok: c.tiktok ? (organic?.tiktok.get(c.tiktok) ?? null) : null,
+      gmb: c.gmb ? (organic?.gmb.get(c.gmb) ?? null) : null,
       meta: metaById.get(c.id) ?? null,
+      kol: kolByClient.get(c.id) ?? null,
     }))
-    .filter((c) => c.ig || c.tiktok || c.meta);
+    .filter((c) => c.ig || c.tiktok || c.gmb || c.meta || c.kol);
 
   return (
     <div className="space-y-6">
@@ -89,6 +127,8 @@ export default async function PerformancePage({
         rangeValue={presetValue}
         rangeFrom={sp.from}
         rangeTo={sp.to}
+        currentLabel={formatRangeJakarta(resolved.current.from, resolved.current.to)}
+        previousLabel={formatRangeJakarta(resolved.previous.from, resolved.previous.to)}
       />
     </div>
   );

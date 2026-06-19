@@ -1,6 +1,8 @@
 "use client";
 
-import { ExternalLink, Pencil } from "lucide-react";
+import { useTransition } from "react";
+import { ExternalLink, Link2, Pencil } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { TASK_STATUS_MAP, TYPE_CONTENTS, type TaskStatus } from "@/lib/task-meta";
 import { cn } from "@/lib/utils";
+import { ensureApprovalLink } from "./actions";
 import { TaskComments } from "./task-comments";
 import type { TaskRow } from "./types";
 
@@ -59,9 +62,27 @@ export function TaskDetailSheet({
   onOpenChange: (o: boolean) => void;
   onEdit: (t: TaskRow) => void;
 }) {
+  const [sharing, startSharing] = useTransition();
   if (!task) return null;
   const meta = TASK_STATUS_MAP[task.status as TaskStatus];
   const type = TYPE_CONTENTS.find((t) => t.value === task.typeContent)?.label;
+
+  function shareApproval() {
+    if (!task) return;
+    startSharing(async () => {
+      const res = await ensureApprovalLink(task.id);
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(res.url);
+        toast.success("Link approval disalin ke clipboard");
+      } catch {
+        toast.success(res.url);
+      }
+    });
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -81,7 +102,17 @@ export function TaskDetailSheet({
                 {type}
               </span>
             )}
-            <Button size="sm" className="ml-auto" onClick={() => onEdit(task)}>
+            <Button
+              size="sm"
+              variant="outline"
+              className="ml-auto"
+              onClick={shareApproval}
+              disabled={sharing}
+            >
+              <Link2 className="size-4" />
+              Approval
+            </Button>
+            <Button size="sm" onClick={() => onEdit(task)}>
               <Pencil className="size-4" />
               Edit
             </Button>

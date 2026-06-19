@@ -59,13 +59,14 @@ export function TopBar({
           >
             <Menu className="size-5" />
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
+          <DropdownMenuContent align="start" className="w-max min-w-52">
             {visibleNav(isAdmin).map((item) => (
               <DropdownMenuItem
                 key={item.href}
                 render={<Link href={item.href} />}
+                className="gap-2 whitespace-nowrap"
               >
-                <item.icon className="size-4" />
+                <item.icon className="size-4 shrink-0" />
                 {item.label}
               </DropdownMenuItem>
             ))}

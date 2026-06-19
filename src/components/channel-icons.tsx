@@ -31,3 +31,17 @@ export function TiktokIcon({ className }: { className?: string }) {
     </svg>
   );
 }
+
+/** Meta infinity mark — for Meta Ads (Facebook + Instagram Ads). */
+export function MetaIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className={cn("size-4", className)}
+      aria-hidden
+    >
+      <path d="M7.2 6C4.3 6 2 9 2 12.4c0 2.7 1.5 4.6 3.8 4.6 1.8 0 3-1 4.7-3.7l1.1-1.8c.2.3.5.8.9 1.4C13.9 15.4 15.4 17 17.6 17c2.6 0 4.4-2.1 4.4-5 0-3.6-2.2-6-5-6-1.7 0-3 1-4.4 3-.9-1.3-2.4-3-5.4-3Zm.3 2.3c1.5 0 2.5 1 3.6 2.7l1 1.6-1.2 2C9.8 14.4 9 15 7.9 15c-1.2 0-2-1-2-2.7 0-2.5 1.3-4 3.6-4Zm9 0c1.5 0 2.5 1.6 2.5 3.7 0 1.6-.8 2.7-2 2.7-1 0-1.8-.7-2.9-2.5l-1-1.6 1-1.6c.9-.5 1.6-.7 2.4-.7Z" />
+    </svg>
+  );
+}

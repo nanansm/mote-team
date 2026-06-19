@@ -25,15 +25,18 @@ type InsightRow = {
 
 const num = (v: string | undefined): number => Number(v) || 0;
 
+/** Value of a single action_type in an actions array (0 if missing). */
+function actionVal(actions: Action[] | undefined, type: string): number {
+  if (!Array.isArray(actions)) return 0;
+  return Number(actions.find((a) => a.action_type === type)?.value || 0);
+}
+
 /** Leads proxy for F&B accounts: messaging conversations started, else lead. */
 function leadsFrom(actions?: Action[]): number {
-  if (!Array.isArray(actions)) return 0;
-  const get = (t: string) =>
-    Number(actions.find((a) => a.action_type === t)?.value || 0);
   return (
-    get("onsite_conversion.messaging_conversation_started_7d") ||
-    get("onsite_conversion.total_messaging_connection") ||
-    get("lead") ||
+    actionVal(actions, "onsite_conversion.messaging_conversation_started_7d") ||
+    actionVal(actions, "onsite_conversion.total_messaging_connection") ||
+    actionVal(actions, "lead") ||
     0
   );
 }
@@ -61,13 +64,56 @@ async function fetchInsights(
   return json.data ?? [];
 }
 
+export type MetaAdAccount = { id: string; name: string };
+
+/**
+ * List ad accounts the configured token can access, so the client form can
+ * offer them as a dropdown (display name, store account_id). Returns [] when
+ * unconfigured/down (anti-stuck) — never throws.
+ */
+export async function listMetaAdAccounts(): Promise<MetaAdAccount[]> {
+  const token = await getMetaToken();
+  if (!token) return [];
+  try {
+    const url = new URL(`${GRAPH}/me/adaccounts`);
+    url.searchParams.set("access_token", token);
+    url.searchParams.set("fields", "account_id,name");
+    url.searchParams.set("limit", "200");
+    const res = await fetch(url.toString(), {
+      signal: AbortSignal.timeout(8000),
+      next: { revalidate: 1800 },
+    });
+    const json = (await res.json()) as {
+      data?: { account_id: string; name?: string }[];
+      error?: { message: string };
+    };
+    if (json.error || !res.ok) return [];
+    return (json.data ?? [])
+      .map((a) => ({ id: a.account_id, name: a.name || a.account_id }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  } catch {
+    return [];
+  }
+}
+
 export type MetaSummary = {
   spend: number;
   impressions: number;
   reach: number;
   clicks: number;
   ctr: number;
+  /** Cost per click (Rp) = spend / clicks. */
   cpc: number;
+  /** Cost per mille (Rp) = spend / impressions * 1000. */
+  cpm: number;
+  /** Cost per lead (Rp) = spend / leads; null when no leads (avoid /0). */
+  cpl: number | null;
+  /** Total post engagement (reactions, comments, shares, clicks, etc). */
+  engagement: number;
+  /** Engagement rate % = engagement / impressions * 100 (Meta-only). */
+  er: number;
+  /** Landing page views (action_type landing_page_view). */
+  landingPageViews: number;
   leads: number;
 };
 
@@ -95,7 +141,7 @@ export async function getMetaPerf(
   const rp = rangeParams(range);
   const [summaryRows, dailyRows] = await Promise.all([
     fetchInsights(accountId, {
-      fields: "spend,impressions,reach,clicks,ctr,cpc",
+      fields: "spend,impressions,reach,clicks,ctr,cpc,actions",
       ...rp,
     }),
     fetchInsights(accountId, {
@@ -108,14 +154,27 @@ export async function getMetaPerf(
   const s = summaryRows[0];
   if (!s) return null;
 
+  const spend = num(s.spend);
+  const impressions = num(s.impressions);
+  const clicks = num(s.clicks);
+  const leads = dailyRows.reduce((a, r) => a + leadsFrom(r.actions), 0);
+  const engagement = actionVal(s.actions, "post_engagement");
+  const landingPageViews = actionVal(s.actions, "landing_page_view");
+
   const summary: MetaSummary = {
-    spend: num(s.spend),
-    impressions: num(s.impressions),
+    spend,
+    impressions,
     reach: num(s.reach),
-    clicks: num(s.clicks),
+    clicks,
     ctr: Math.round(num(s.ctr) * 100) / 100,
-    cpc: Math.round(num(s.cpc)),
-    leads: dailyRows.reduce((a, r) => a + leadsFrom(r.actions), 0),
+    // Cost metrics derived from spend so they always agree with the totals.
+    cpc: clicks > 0 ? Math.round(spend / clicks) : 0,
+    cpm: impressions > 0 ? Math.round((spend / impressions) * 1000) : 0,
+    cpl: leads > 0 ? Math.round(spend / leads) : null,
+    engagement,
+    er: impressions > 0 ? Math.round((engagement / impressions) * 10000) / 100 : 0,
+    landingPageViews,
+    leads,
   };
   const daily: MetaDailyPoint[] = dailyRows.map((r) => ({
     date: r.date_start ?? "",
