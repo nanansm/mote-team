@@ -43,7 +43,7 @@ export async function GET(req: Request) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const mailerOn = isMailerConfigured();
+  const mailerOn = await isMailerConfigured();
   const waOn = await isWhatsAppConfigured();
   if (!mailerOn && !waOn) {
     return Response.json({ ok: false, error: "No channel configured (SMTP/WhatsApp)" });

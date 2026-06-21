@@ -1,21 +1,9 @@
 import nodemailer from "nodemailer";
-import { env } from "./env";
+import { getSmtpConfig, isSmtpConfigured } from "./config";
 
-export function isMailerConfigured(): boolean {
-  return Boolean(env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASSWORD);
-}
-
-let cached: nodemailer.Transporter | null = null;
-function transporter(): nodemailer.Transporter {
-  if (!cached) {
-    cached = nodemailer.createTransport({
-      host: env.SMTP_HOST,
-      port: Number(env.SMTP_PORT) || 587,
-      secure: env.SMTP_SECURE === "true",
-      auth: { user: env.SMTP_USER, pass: env.SMTP_PASSWORD },
-    });
-  }
-  return cached;
+/** True when SMTP is usable (DB override or env fallback). */
+export async function isMailerConfigured(): Promise<boolean> {
+  return isSmtpConfigured();
 }
 
 export async function sendMail(opts: {
@@ -23,10 +11,18 @@ export async function sendMail(opts: {
   subject: string;
   html: string;
 }): Promise<boolean> {
-  if (!isMailerConfigured()) return false;
+  const c = await getSmtpConfig();
+  if (!c.host || !c.user || !c.password) return false;
   try {
-    await transporter().sendMail({
-      from: `"${env.SMTP_FROM_NAME}" <${env.SMTP_FROM_EMAIL || env.SMTP_USER}>`,
+    // Build per-send: SMTP config is admin-editable at runtime (no caching).
+    const transporter = nodemailer.createTransport({
+      host: c.host,
+      port: Number(c.port) || 587,
+      secure: c.secure,
+      auth: { user: c.user, pass: c.password },
+    });
+    await transporter.sendMail({
+      from: `"${c.fromName}" <${c.fromEmail || c.user}>`,
       to: Array.isArray(opts.to) ? opts.to.join(", ") : opts.to,
       subject: opts.subject,
       html: opts.html,

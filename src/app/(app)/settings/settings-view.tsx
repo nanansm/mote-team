@@ -14,7 +14,7 @@ import {
   WA_TEMPLATE_DEFAULTS,
   WA_TEMPLATE_PLACEHOLDERS,
 } from "@/lib/wa-templates";
-import { saveSettings } from "./actions";
+import { saveSettings, sendTestEmail } from "./actions";
 
 function StatusBadge({ on }: { on: boolean }) {
   return (
@@ -327,13 +327,168 @@ function WhatsAppCard({
   );
 }
 
+type SmtpProps = {
+  configured: boolean;
+  host: string;
+  port: string;
+  secure: boolean;
+  user: string;
+  hasPassword: boolean;
+  fromName: string;
+  fromEmail: string;
+};
+
+function SmtpCard({ smtp }: { smtp: SmtpProps }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [testing, startTest] = useTransition();
+  const [host, setHost] = useState(smtp.host);
+  const [port, setPort] = useState(smtp.port || "587");
+  const [secure, setSecure] = useState(smtp.secure);
+  const [user, setUser] = useState(smtp.user);
+  const [password, setPassword] = useState("");
+  const [fromName, setFromName] = useState(smtp.fromName);
+  const [fromEmail, setFromEmail] = useState(smtp.fromEmail);
+
+  function save() {
+    const values: Record<string, string> = {
+      smtp_host: host.trim(),
+      smtp_port: port.trim() || "587",
+      smtp_secure: String(secure),
+      smtp_user: user.trim(),
+      smtp_from_name: fromName.trim(),
+      smtp_from_email: fromEmail.trim(),
+    };
+    // Blank password = keep the stored one (don't overwrite with empty).
+    if (password.trim()) values.smtp_password = password.trim();
+    start(async () => {
+      const r = await saveSettings(values);
+      if (r.ok) {
+        toast.success("Konfigurasi SMTP disimpan");
+        setPassword("");
+        router.refresh();
+      } else {
+        toast.error(r.error);
+      }
+    });
+  }
+
+  function test() {
+    startTest(async () => {
+      const r = await sendTestEmail();
+      if (r.ok) toast.success("Email test terkirim — cek inbox admin");
+      else toast.error(r.error);
+    });
+  }
+
+  return (
+    <div className="rounded-xl border bg-card p-5 shadow-xs">
+      <div className="flex items-start gap-3">
+        <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+          <Mail className="size-[18px]" />
+        </span>
+        <div>
+          <div className="flex items-center gap-2">
+            <h3 className="font-medium">Email (SMTP)</h3>
+            <StatusBadge on={smtp.configured} />
+          </div>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            Notif task, reminder deadline & reset password anggota.
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label className="text-xs">SMTP Host</Label>
+          <Input
+            value={host}
+            onChange={(e) => setHost(e.target.value)}
+            placeholder="smtp.gmail.com"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Port</Label>
+          <Input
+            value={port}
+            onChange={(e) => setPort(e.target.value)}
+            placeholder="587"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">User (email pengirim)</Label>
+          <Input
+            value={user}
+            onChange={(e) => setUser(e.target.value)}
+            placeholder="motekreatif@gmail.com"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Password (Gmail app-password)</Label>
+          <Input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder={
+              smtp.hasPassword
+                ? "•••••••• (tersimpan — isi untuk ganti)"
+                : "Belum diisi"
+            }
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">From name</Label>
+          <Input
+            value={fromName}
+            onChange={(e) => setFromName(e.target.value)}
+            placeholder="Mote Team"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">From email (opsional)</Label>
+          <Input
+            value={fromEmail}
+            onChange={(e) => setFromEmail(e.target.value)}
+            placeholder="kosong = pakai User"
+          />
+        </div>
+      </div>
+
+      <div className="mt-3 flex items-center gap-3">
+        <Switch checked={secure} onCheckedChange={setSecure} disabled={pending} />
+        <span className="text-sm text-muted-foreground">
+          SSL/TLS (secure) — port 465 nyalakan, port 587 matikan
+        </span>
+      </div>
+
+      <div className="mt-4 flex justify-end gap-2">
+        <Button
+          variant="outline"
+          onClick={test}
+          disabled={testing || pending || !smtp.configured}
+        >
+          {testing ? "Mengirim…" : "Test kirim"}
+        </Button>
+        <Button onClick={save} disabled={pending}>
+          Simpan konfigurasi
+        </Button>
+      </div>
+
+      <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-400/10 dark:text-amber-300">
+        Gmail: butuh 2FA aktif + app-password 16 huruf (bukan password akun
+        biasa). &quot;Test kirim&quot; mengirim ke email admin yang login —
+        verifikasi password beneran diterima Gmail, bukan cuma terisi.
+      </p>
+    </div>
+  );
+}
+
 export function SettingsView({
   windsor,
   meta,
   wa,
   r2Configured,
-  smtpConfigured,
-  smtpFrom,
+  smtp,
 }: {
   windsor: { enabled: boolean; hasKey: boolean };
   meta: { enabled: boolean; hasKey: boolean };
@@ -346,8 +501,7 @@ export function SettingsView({
     tplReminder: string;
   };
   r2Configured: boolean;
-  smtpConfigured: boolean;
-  smtpFrom: string;
+  smtp: SmtpProps;
 }) {
   return (
     <div className="space-y-4">
@@ -383,46 +537,29 @@ export function SettingsView({
         tplReminder={wa.tplReminder}
       />
 
-      {/* Read-only status (env-managed for now) */}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="rounded-xl border bg-card p-5 shadow-xs">
-          <div className="flex items-center gap-3">
-            <span className="grid size-9 place-items-center rounded-lg bg-muted text-foreground">
-              <Database className="size-[18px]" />
-            </span>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-medium">Cloudflare R2</h3>
-                <StatusBadge on={r2Configured} />
-              </div>
-              <p className="mt-0.5 text-sm text-muted-foreground">
-                Penyimpanan file (logo & media task).
-              </p>
-            </div>
-          </div>
-        </div>
+      <SmtpCard smtp={smtp} />
 
-        <div className="rounded-xl border bg-card p-5 shadow-xs">
-          <div className="flex items-center gap-3">
-            <span className="grid size-9 place-items-center rounded-lg bg-muted text-foreground">
-              <Mail className="size-[18px]" />
-            </span>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-medium">Email (SMTP)</h3>
-                <StatusBadge on={smtpConfigured} />
-              </div>
-              <p className="mt-0.5 text-sm text-muted-foreground">
-                Notifikasi task & deadline {smtpConfigured ? `· dari ${smtpFrom}` : ""}
-              </p>
+      {/* R2 stays env-managed (read-only) */}
+      <div className="rounded-xl border bg-card p-5 shadow-xs">
+        <div className="flex items-center gap-3">
+          <span className="grid size-9 place-items-center rounded-lg bg-muted text-foreground">
+            <Database className="size-[18px]" />
+          </span>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="font-medium">Cloudflare R2</h3>
+              <StatusBadge on={r2Configured} />
             </div>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              Penyimpanan file (logo & media task).
+            </p>
           </div>
         </div>
       </div>
 
       <p className="text-xs text-muted-foreground">
-        R2 & SMTP diatur lewat environment variable saat deploy. Windsor & Meta
-        bisa diubah langsung di sini (tersimpan di database).
+        R2 diatur lewat environment variable saat deploy. Windsor, Meta, WhatsApp
+        & SMTP bisa diubah langsung di sini (tersimpan di database).
       </p>
     </div>
   );

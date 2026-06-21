@@ -2,15 +2,15 @@ import { PageHeader } from "@/components/page-header";
 import {
   getMetaToken,
   getSettings,
+  getSmtpConfig,
   getWaConfig,
   getWaTemplates,
   getWindsorKey,
   isMetaEnabled,
+  isSmtpConfigured,
   isWaEnabled,
   isWindsorEnabled,
 } from "@/lib/config";
-import { env } from "@/lib/env";
-import { isMailerConfigured } from "@/lib/mailer";
 import { isR2Configured } from "@/lib/r2";
 import { requireAdmin } from "@/lib/session";
 import { SettingsView } from "./settings-view";
@@ -28,6 +28,8 @@ export default async function SettingsPage() {
     waEnabled,
     waCfg,
     waTpl,
+    smtpCfg,
+    smtpOn,
   ] = await Promise.all([
     getWindsorKey(),
     isWindsorEnabled(),
@@ -36,6 +38,8 @@ export default async function SettingsPage() {
     isWaEnabled(),
     getWaConfig(),
     getWaTemplates(),
+    getSmtpConfig(),
+    isSmtpConfigured(),
   ]);
   // Touch getSettings so it's cached for this request (no-op safety).
   await getSettings();
@@ -58,8 +62,16 @@ export default async function SettingsPage() {
           tplReminder: waTpl.reminder,
         }}
         r2Configured={isR2Configured()}
-        smtpConfigured={isMailerConfigured()}
-        smtpFrom={env.SMTP_FROM_EMAIL || env.SMTP_USER}
+        smtp={{
+          configured: smtpOn,
+          host: smtpCfg.host,
+          port: smtpCfg.port,
+          secure: smtpCfg.secure,
+          user: smtpCfg.user,
+          hasPassword: Boolean(smtpCfg.password),
+          fromName: smtpCfg.fromName,
+          fromEmail: smtpCfg.fromEmail,
+        }}
       />
     </div>
   );

@@ -9,6 +9,7 @@ export const SECRET_SETTING_KEYS = new Set([
   "windsor_api_key",
   "meta_access_token",
   "wa_api_key",
+  "smtp_password",
 ]);
 
 /**
@@ -80,6 +81,33 @@ export async function getWaTemplates(): Promise<{
   };
 }
 
+// SMTP (email) — DB overrides env so admin can fix creds without redeploy.
+export type SmtpConfig = {
+  host: string;
+  port: string;
+  secure: boolean;
+  user: string;
+  password: string;
+  fromName: string;
+  fromEmail: string;
+};
+export async function getSmtpConfig(): Promise<SmtpConfig> {
+  const s = await getSettings();
+  return {
+    host: s["smtp_host"] ?? env.SMTP_HOST,
+    port: s["smtp_port"] ?? env.SMTP_PORT,
+    secure: (s["smtp_secure"] ?? env.SMTP_SECURE) === "true",
+    user: s["smtp_user"] ?? env.SMTP_USER,
+    password: s["smtp_password"] ?? env.SMTP_PASSWORD,
+    fromName: s["smtp_from_name"] ?? env.SMTP_FROM_NAME,
+    fromEmail: s["smtp_from_email"] ?? env.SMTP_FROM_EMAIL,
+  };
+}
+export async function isSmtpConfigured(): Promise<boolean> {
+  const c = await getSmtpConfig();
+  return Boolean(c.host && c.user && c.password);
+}
+
 /** Settings keys that the admin UI manages. */
 export const SETTING_KEYS = {
   windsorKey: "windsor_api_key",
@@ -92,4 +120,11 @@ export const SETTING_KEYS = {
   waEnabled: "wa_enabled",
   waTplAssign: "wa_tpl_assign",
   waTplReminder: "wa_tpl_reminder",
+  smtpHost: "smtp_host",
+  smtpPort: "smtp_port",
+  smtpSecure: "smtp_secure",
+  smtpUser: "smtp_user",
+  smtpPassword: "smtp_password",
+  smtpFromName: "smtp_from_name",
+  smtpFromEmail: "smtp_from_email",
 } as const;
