@@ -31,7 +31,12 @@ import {
 import { cn } from "@/lib/utils";
 import { fmtNum as fmt, kfmt, rp } from "@/lib/format";
 import { monthLabel, monthOptions } from "@/lib/month";
-import { KOL_STATUS_LABEL, type KolAggregate, type KolRowComputed } from "@/lib/kol";
+import {
+  KOL_STATUS_LABEL,
+  KOL_STATUS_ORDER,
+  type KolAggregate,
+  type KolRowComputed,
+} from "@/lib/kol";
 import type { KolStatus } from "@/lib/types";
 import { deleteKol } from "./actions";
 import { KolFormDialog } from "./kol-form-dialog";
@@ -73,6 +78,7 @@ export function KolView({
   clientNames,
   selectedClient,
   period,
+  selectedStatus,
   nowMonth,
   rows,
   aggregate,
@@ -82,6 +88,7 @@ export function KolView({
   clientNames: Record<string, string>;
   selectedClient: string;
   period: string;
+  selectedStatus: string;
   nowMonth: string;
   rows: KolRowComputed[];
   aggregate: KolAggregate;
@@ -95,10 +102,11 @@ export function KolView({
   const [editRow, setEditRow] = useState<KolRowComputed | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<KolRowComputed | null>(null);
 
-  function navigate(next: { client?: string; period?: string }) {
+  function navigate(next: { client?: string; period?: string; status?: string }) {
     const c = next.client ?? selectedClient;
     const p = next.period ?? period;
-    router.push(`/kol?client=${c}&period=${p}`);
+    const s = next.status ?? selectedStatus;
+    router.push(`/kol?client=${c}&period=${p}&status=${s}`);
   }
 
   function openCreate() {
@@ -177,6 +185,28 @@ export function KolView({
               {months.map((m) => (
                 <SelectItem key={m} value={m}>
                   {monthLabel(m)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={selectedStatus}
+            onValueChange={(v) => v && navigate({ status: v })}
+          >
+            <SelectTrigger className="w-48">
+              <SelectValue>
+                {(v) =>
+                  v === ALL
+                    ? "Semua Status"
+                    : KOL_STATUS_LABEL[v as KolStatus]
+                }
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>Semua Status</SelectItem>
+              {KOL_STATUS_ORDER.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {KOL_STATUS_LABEL[s]}
                 </SelectItem>
               ))}
             </SelectContent>

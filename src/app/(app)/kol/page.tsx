@@ -2,7 +2,13 @@ import { and, asc, eq, inArray } from "drizzle-orm";
 import { PageHeader } from "@/components/page-header";
 import { db } from "@/db";
 import { client, kolActivation } from "@/db/schema";
-import { aggregateKol, topKolPosts, withComputed } from "@/lib/kol";
+import {
+  aggregateKol,
+  KOL_STATUS_ORDER,
+  topKolPosts,
+  withComputed,
+} from "@/lib/kol";
+import type { KolStatus } from "@/lib/types";
 import { jakartaParts } from "@/lib/tz";
 import { KolView } from "./kol-view";
 
@@ -18,7 +24,7 @@ function currentMonth(): string {
 export default async function KolPage({
   searchParams,
 }: {
-  searchParams: Promise<{ client?: string; period?: string }>;
+  searchParams: Promise<{ client?: string; period?: string; status?: string }>;
 }) {
   const sp = await searchParams;
   const period =
@@ -27,6 +33,12 @@ export default async function KolPage({
       : /^\d{4}-\d{2}$/.test(sp.period ?? "")
         ? sp.period!
         : currentMonth();
+
+  // Default "Semua Status"; only honor a valid pipeline status.
+  const selectedStatus: string =
+    sp.status && KOL_STATUS_ORDER.includes(sp.status as KolStatus)
+      ? sp.status
+      : ALL;
 
   // Active clients only.
   const clients = await db
@@ -44,6 +56,8 @@ export default async function KolPage({
 
   const conds = [inArray(kolActivation.clientId, scopeIds)];
   if (period !== ALL) conds.push(eq(kolActivation.period, period));
+  if (selectedStatus !== ALL)
+    conds.push(eq(kolActivation.status, selectedStatus as KolStatus));
 
   const rows = scopeIds.length
     ? await db
@@ -66,6 +80,7 @@ export default async function KolPage({
         clientNames={clientNames}
         selectedClient={selectedClient}
         period={period}
+        selectedStatus={selectedStatus}
         nowMonth={currentMonth()}
         rows={withComputed(rows)}
         aggregate={aggregateKol(rows)}
