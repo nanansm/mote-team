@@ -17,7 +17,9 @@ export async function POST(req: Request) {
     return Response.json({ error: "Maksimal 10MB" }, { status: 400 });
   }
 
-  const kind: UploadKind = form.get("kind") === "logo" ? "logo" : "task";
+  const kindRaw = form.get("kind");
+  const kind: UploadKind =
+    kindRaw === "logo" ? "logo" : kindRaw === "avatar" ? "avatar" : "task";
   const buffer = Buffer.from(await file.arrayBuffer());
   const url = await uploadImage(buffer, file.name, file.type, kind);
   return Response.json({ url });

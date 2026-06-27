@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LogOut, Menu, Plus, Search } from "lucide-react";
+import { LogOut, Plus, Search, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { MobileNav } from "@/components/mobile-nav";
+import { OnlinePresence } from "@/components/online-presence";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,9 +18,10 @@ import {
 import { ThemeToggle } from "@/components/theme-toggle";
 import { UserAvatar } from "@/components/user-avatar";
 import { signOut } from "@/lib/auth-client";
-import { navItems, visibleNav } from "./nav-items";
+import { navItems } from "./nav-items";
 
 type TopBarUser = {
+  id: string;
   name: string;
   email: string;
   image?: string | null;
@@ -50,48 +53,17 @@ export function TopBar({
   return (
     <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between border-b bg-background/80 px-4 backdrop-blur-md md:px-6">
       <div className="flex items-center gap-2">
-        {/* Mobile nav */}
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button variant="ghost" size="icon" className="md:hidden" />
-            }
-          >
-            <Menu className="size-5" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-max min-w-52">
-            {visibleNav(isAdmin).map((item) => (
-              <DropdownMenuItem
-                key={item.href}
-                render={<Link href={item.href} />}
-                className="gap-2 whitespace-nowrap"
-              >
-                <item.icon className="size-4 shrink-0" />
-                {item.label}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <MobileNav isAdmin={isAdmin} />
         <h1 className="text-base font-semibold">{pageTitle(pathname)}</h1>
       </div>
 
       <div className="flex items-center gap-1.5">
-        <button
-          onClick={() => window.dispatchEvent(new Event("mote:command"))}
-          className="hidden items-center gap-2 rounded-lg border bg-background px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent sm:flex"
-          aria-label="Cari (perintah cepat)"
-        >
-          <Search className="size-4" />
-          <span>Cari…</span>
-          <kbd className="rounded border bg-muted px-1.5 text-[10px] font-medium text-muted-foreground">
-            ⌘K
-          </kbd>
-        </button>
+        <OnlinePresence currentUserId={user.id} />
         <Button
           variant="ghost"
           size="icon"
-          className="sm:hidden"
-          aria-label="Cari"
+          aria-label="Cari (⌘K)"
+          title="Cari (⌘K)"
           onClick={() => window.dispatchEvent(new Event("mote:command"))}
         >
           <Search className="size-5" />
@@ -124,6 +96,11 @@ export function TopBar({
               </span>
             </DropdownMenuLabel>
           </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem render={<Link href="/profile" />}>
+            <User className="size-4" />
+            Profil saya
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleSignOut} variant="destructive">
             <LogOut className="size-4" />

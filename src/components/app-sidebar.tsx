@@ -23,7 +23,7 @@ export function AppSidebar({ isAdmin }: { isAdmin: boolean }) {
             <p className="px-2.5 pb-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/60">
               {g.group}
             </p>
-            <div className="space-y-0.5">
+            <div className="space-y-px">
               {g.items.map((item) => {
                 const active =
                   pathname === item.href ||
@@ -34,15 +34,12 @@ export function AppSidebar({ isAdmin }: { isAdmin: boolean }) {
                     key={item.href}
                     href={item.href}
                     className={cn(
-                      "group relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors",
+                      "group flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors",
                       active
-                        ? "bg-primary/10 font-medium text-primary"
-                        : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
+                        ? "bg-sidebar-accent font-medium text-foreground"
+                        : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground",
                     )}
                   >
-                    {active && (
-                      <span className="absolute left-0 top-1.5 h-[calc(100%-12px)] w-0.5 rounded-full bg-primary" />
-                    )}
                     <Icon
                       className={cn(
                         "size-4 shrink-0 transition-colors",

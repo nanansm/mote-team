@@ -38,7 +38,7 @@ function getClient(): S3Client {
   return cachedClient;
 }
 
-export type UploadKind = "task" | "logo";
+export type UploadKind = "task" | "logo" | "avatar";
 
 async function processImage(
   buffer: Buffer,
@@ -63,6 +63,15 @@ async function processImage(
         .toBuffer();
       return { body, ext: "png", ctype: "image/png" };
     }
+    if (kind === "avatar") {
+      // Avatar: square crop 256×256, JPEG.
+      const body = await sharp(buffer)
+        .rotate()
+        .resize(256, 256, { fit: "cover" })
+        .jpeg({ quality: 80 })
+        .toBuffer();
+      return { body, ext: "jpg", ctype: "image/jpeg" };
+    }
     // Task media: cap at 1600px, JPEG.
     const body = await sharp(buffer)
       .rotate()
@@ -82,7 +91,7 @@ export async function uploadImage(
   contentType: string,
   kind: UploadKind = "task",
 ): Promise<string> {
-  const folder = kind === "logo" ? "logos" : "tasks";
+  const folder = kind === "logo" ? "logos" : kind === "avatar" ? "avatars" : "tasks";
   const { body, ext, ctype } = await processImage(
     buffer,
     originalName,

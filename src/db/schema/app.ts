@@ -227,6 +227,20 @@ export const taskComment = moteteam.table(
   (t) => [index("task_comment_task_idx").on(t.taskId)],
 );
 
+// Team chat: one shared channel (#umum). One row = one message.
+export const chatMessage = moteteam.table(
+  "chat_message",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [index("chat_message_created_idx").on(t.createdAt)],
+);
+
 // Recurring content template: one row = one recurring task line for a client.
 // "Generate bulan ini" creates tasks with postingDate = month + dayOfMonth.
 export const taskTemplate = moteteam.table(

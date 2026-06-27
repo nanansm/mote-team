@@ -1,6 +1,8 @@
 import { asc, eq } from "drizzle-orm";
 import { AppSidebar } from "@/components/app-sidebar";
+import { ChatWidget } from "@/components/chat-widget";
 import { CommandPalette } from "@/components/command-palette";
+import { RealtimeProvider } from "@/components/realtime-provider";
 import { TopBar } from "@/components/top-bar";
 import { db } from "@/db";
 import { client } from "@/db/schema";
@@ -24,22 +26,29 @@ export default async function AppLayout({
     .orderBy(asc(client.name));
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <AppSidebar isAdmin={isAdmin} />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <TopBar
-          isAdmin={isAdmin}
-          user={{
-            name: session.user.name,
-            email: session.user.email,
-            image: session.user.image,
-          }}
+    <RealtimeProvider>
+      <div className="flex h-screen overflow-hidden">
+        <AppSidebar isAdmin={isAdmin} />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <TopBar
+            isAdmin={isAdmin}
+            user={{
+              id: session.user.id,
+              name: session.user.name,
+              email: session.user.email,
+              image: session.user.image,
+            }}
+          />
+          <main className="flex-1 overflow-auto bg-background p-4 md:p-6">
+            <div className="mx-auto w-full max-w-6xl">{children}</div>
+          </main>
+        </div>
+        <CommandPalette clients={clients} isAdmin={isAdmin} />
+        <ChatWidget
+          currentUserId={session.user.id}
+          currentUserName={session.user.name}
         />
-        <main className="flex-1 overflow-auto bg-gradient-to-b from-muted/50 to-background p-4 md:p-6">
-          <div className="mx-auto w-full max-w-6xl">{children}</div>
-        </main>
       </div>
-      <CommandPalette clients={clients} isAdmin={isAdmin} />
-    </div>
+    </RealtimeProvider>
   );
 }
