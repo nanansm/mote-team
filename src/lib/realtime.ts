@@ -40,6 +40,11 @@ export function onlineUsers(): OnlineUser[] {
   return [...conns.values()].map((c) => c.info);
 }
 
+/** True if the user has at least one open SSE connection (any tab). */
+export function isOnline(userId: string): boolean {
+  return conns.has(userId);
+}
+
 function broadcastPresence() {
   bus.emit("event", { type: "presence", users: onlineUsers() } satisfies RealtimeEvent);
 }

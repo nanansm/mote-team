@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,12 +9,16 @@ import { UserAvatar } from "@/components/user-avatar";
 import { useRealtime } from "@/components/realtime-provider";
 import {
   listChatMembers,
+  listMentionableTasks,
   listMessages,
   sendMessage,
   type ChatMember,
+  type ChatTask,
 } from "@/app/(app)/chat/actions";
 import type { ChatMessage } from "@/lib/realtime";
 import { cn } from "@/lib/utils";
+
+type Pick = { label: string; token: string };
 
 const timeFmt = new Intl.DateTimeFormat("id-ID", {
   timeZone: "Asia/Jakarta",
@@ -25,46 +30,71 @@ function escapeRe(s: string) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/** Render body text with @mentions highlighted. */
+/**
+ * Render body: `@[Name](u:id)` highlight, `#[Title](t:id)` task link, plus
+ * legacy plain `@Name` highlight (messages sent before structured tokens).
+ */
 function renderBody(body: string, names: string[], mine: boolean) {
   const present = names
     .filter((n) => body.includes(`@${n}`))
     .sort((a, b) => b.length - a.length);
-  if (present.length === 0) return body;
-  const re = new RegExp(`@(?:${present.map(escapeRe).join("|")})`, "g");
+  const parts = [
+    String.raw`@\[[^\]]+\]\(u:[^)]+\)`,
+    String.raw`#\[[^\]]+\]\(t:[^)]+\)`,
+  ];
+  if (present.length) parts.push(`@(?:${present.map(escapeRe).join("|")})`);
+  const re = new RegExp(parts.join("|"), "g");
+  const hi = cn("font-semibold", mine ? "underline" : "text-primary");
   const out: React.ReactNode[] = [];
   let last = 0;
   let m: RegExpExecArray | null;
   let i = 0;
   while ((m = re.exec(body))) {
     if (m.index > last) out.push(body.slice(last, m.index));
-    out.push(
-      <span
-        key={i++}
-        className={cn("font-semibold", mine ? "underline" : "text-primary")}
-      >
-        {m[0]}
-      </span>,
-    );
-    last = m.index + m[0].length;
+    const s = m[0];
+    if (s.startsWith("@[")) {
+      out.push(
+        <span key={i++} className={hi}>
+          @{s.slice(2, s.indexOf("]"))}
+        </span>,
+      );
+    } else if (s.startsWith("#[")) {
+      const id = s.slice(s.indexOf("(t:") + 3, -1);
+      out.push(
+        <Link key={i++} href={`/tasks?task=${id}`} className={cn(hi, "underline")}>
+          #{s.slice(2, s.indexOf("]"))}
+        </Link>,
+      );
+    } else {
+      out.push(
+        <span key={i++} className={hi}>
+          {s}
+        </span>,
+      );
+    }
+    last = m.index + s.length;
   }
   if (last < body.length) out.push(body.slice(last));
-  return out;
+  return out.length ? out : body;
 }
 
 export function ChatPanel({ currentUserId }: { currentUserId: string }) {
   const { onMessage } = useRealtime();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [members, setMembers] = useState<ChatMember[]>([]);
+  const [tasks, setTasks] = useState<ChatTask[]>([]);
   const [text, setText] = useState("");
+  const [picks, setPicks] = useState<Pick[]>([]);
   const [sending, setSending] = useState(false);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [taskQuery, setTaskQuery] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     listMessages().then(setMessages).catch(() => {});
     listChatMembers().then(setMembers).catch(() => {});
+    listMentionableTasks().then(setTasks).catch(() => {});
   }, []);
 
   useEffect(
@@ -91,41 +121,83 @@ export function ChatPanel({ currentUserId }: { currentUserId: string }) {
       .slice(0, 6);
   }, [mentionQuery, members, currentUserId]);
 
+  const taskMatches = useMemo(() => {
+    if (taskQuery === null) return [];
+    const q = taskQuery.toLowerCase();
+    return tasks.filter((t) => t.title.toLowerCase().includes(q)).slice(0, 8);
+  }, [taskQuery, tasks]);
+
   function onInput(e: React.ChangeEvent<HTMLInputElement>) {
     const val = e.target.value;
     setText(val);
     const caret = e.target.selectionStart ?? val.length;
     const before = val.slice(0, caret);
-    const m = before.match(/@([^\s@]*)$/);
-    setMentionQuery(m ? m[1] : null);
+    const at = before.match(/@([^\s@]*)$/);
+    const hash = before.match(/#([^\s#]*)$/);
+    setMentionQuery(at ? at[1] : null);
+    setTaskQuery(at ? null : hash ? hash[1] : null);
   }
 
-  function pickMention(name: string) {
-    const el = inputRef.current;
-    const caret = el?.selectionStart ?? text.length;
-    const before = text.slice(0, caret).replace(/@([^\s@]*)$/, `@${name} `);
-    const after = text.slice(caret);
-    const next = before + after;
-    setText(next);
+  function recordSelection(el: HTMLInputElement | null, before: string, after: string) {
+    setText(before + after);
     setMentionQuery(null);
+    setTaskQuery(null);
     requestAnimationFrame(() => {
       el?.focus();
       el?.setSelectionRange(before.length, before.length);
     });
   }
 
+  function pickMention(mem: ChatMember) {
+    const el = inputRef.current;
+    const caret = el?.selectionStart ?? text.length;
+    const before = text.slice(0, caret).replace(/@([^\s@]*)$/, `@${mem.name} `);
+    setPicks((p) => [
+      ...p,
+      { label: `@${mem.name}`, token: `@[${mem.name}](u:${mem.userId})` },
+    ]);
+    recordSelection(el, before, text.slice(caret));
+  }
+
+  function pickTask(t: ChatTask) {
+    const el = inputRef.current;
+    const caret = el?.selectionStart ?? text.length;
+    const before = text.slice(0, caret).replace(/#([^\s#]*)$/, `#${t.title} `);
+    setPicks((p) => [
+      ...p,
+      { label: `#${t.title}`, token: `#[${t.title}](t:${t.id})` },
+    ]);
+    recordSelection(el, before, text.slice(caret));
+  }
+
+  /** Swap each picked readable label for its `@[..](u:id)` / `#[..](t:id)` token. */
+  function buildBody(raw: string): string {
+    if (picks.length === 0) return raw;
+    const map = new Map(picks.map((p) => [p.label, p.token]));
+    // ponytail: longest label first so "@Don" can't clobber "@Donita"; word
+    // boundary lookahead stops a label matching a longer surrounding word.
+    const labels = [...map.keys()].sort((a, b) => b.length - a.length).map(escapeRe);
+    const re = new RegExp(`(?:${labels.join("|")})(?![\\p{L}\\p{N}_])`, "gu");
+    return raw.replace(re, (m) => map.get(m) ?? m);
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const body = text.trim();
-    if (!body || sending) return;
+    const raw = text.trim();
+    if (!raw || sending) return;
+    const body = buildBody(raw);
+    const prevPicks = picks;
     setSending(true);
     setText("");
+    setPicks([]);
     setMentionQuery(null);
+    setTaskQuery(null);
     const r = await sendMessage(body);
     setSending(false);
     if (!r.ok) {
       toast.error(r.error);
-      setText(body);
+      setText(raw);
+      setPicks(prevPicks);
     }
   }
 
@@ -185,7 +257,7 @@ export function ChatPanel({ currentUserId }: { currentUserId: string }) {
               <button
                 key={m.userId}
                 type="button"
-                onClick={() => pickMention(m.name)}
+                onClick={() => pickMention(m)}
                 className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-sm hover:bg-accent"
               >
                 <UserAvatar name={m.name} src={m.image} className="size-5 text-[9px]" />
@@ -194,11 +266,28 @@ export function ChatPanel({ currentUserId }: { currentUserId: string }) {
             ))}
           </div>
         )}
+        {taskMatches.length > 0 && (
+          <div className="absolute bottom-full left-3 mb-1 max-h-64 w-72 overflow-y-auto rounded-lg border bg-popover shadow-pop">
+            {taskMatches.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => pickTask(t)}
+                className="flex w-full flex-col items-start px-2.5 py-1.5 text-left text-sm hover:bg-accent"
+              >
+                <span className="w-full truncate font-medium">{t.title}</span>
+                <span className="w-full truncate text-xs text-muted-foreground">
+                  {t.clientName}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
         <input
           ref={inputRef}
           value={text}
           onChange={onInput}
-          placeholder="Tulis pesan… (@ untuk tag)"
+          placeholder="Tulis pesan… (@ orang · # task)"
           autoComplete="off"
           className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm"
         />

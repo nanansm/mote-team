@@ -37,7 +37,11 @@ export function ChatWidget({
       onMessage((m) => {
         if (m.userId === currentUserId || open) return;
         setUnread((u) => u + 1);
-        if (m.body.includes(`@${currentUserName}`)) setMentions((c) => c + 1);
+        if (
+          m.body.includes(`(u:${currentUserId})`) ||
+          m.body.includes(`@${currentUserName}`)
+        )
+          setMentions((c) => c + 1);
       }),
     [onMessage, open, currentUserId, currentUserName],
   );

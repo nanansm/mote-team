@@ -1,14 +1,29 @@
 "use server";
 
-import { and, asc, eq, gt, ilike, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, ilike, inArray, ne, or, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { chatMessage, user } from "@/db/schema";
-import { publish, type ChatMessage } from "@/lib/realtime";
+import { chatMessage, client, task, user } from "@/db/schema";
+import { env } from "@/lib/env";
+import { chatMentionEmail, sendMail } from "@/lib/mailer";
+import { isOnline, publish, type ChatMessage } from "@/lib/realtime";
 import { requireSession } from "@/lib/session";
 
 const MAX_LEN = 2000;
 
 export type ChatMember = { userId: string; name: string; image: string | null };
+export type ChatTask = { id: string; title: string; clientName: string };
+
+/** Tasks that can be #-mentioned in chat (id + title, newest first). */
+export async function listMentionableTasks(): Promise<ChatTask[]> {
+  await requireSession();
+  const rows = await db
+    .select({ id: task.id, title: task.title, clientName: client.name })
+    .from(task)
+    .leftJoin(client, eq(task.clientId, client.id))
+    .orderBy(desc(task.createdAt))
+    .limit(500);
+  return rows.map((r) => ({ ...r, clientName: r.clientName ?? "—" }));
+}
 
 /** Members that can be @-mentioned (everyone with a login). */
 export async function listChatMembers(): Promise<ChatMember[]> {
@@ -36,7 +51,12 @@ export async function unreadMentionCount(
       and(
         gt(chatMessage.createdAt, since),
         ne(chatMessage.userId, session.user.id),
-        ilike(chatMessage.body, `%@${session.user.name}%`),
+        or(
+          // new structured mention token …
+          ilike(chatMessage.body, `%(u:${session.user.id})%`),
+          // … and legacy plain "@Name" messages.
+          ilike(chatMessage.body, `%@${session.user.name}%`),
+        ),
       ),
     );
   return row?.n ?? 0;
@@ -96,5 +116,39 @@ export async function sendMessage(
       createdAt: row.createdAt.toISOString(),
     },
   });
+
+  // Email anyone @-mentioned who is currently offline (online users already
+  // see the realtime red badge, so emailing them would just be noise).
+  await notifyMentions(trimmed, session.user.id, session.user.name).catch(
+    (e) => console.error("[chat] mention email failed:", e),
+  );
   return { ok: true };
+}
+
+/** "@[Name](u:id)" → "@Name", "#[Title](t:id)" → "#Title" for email snippets. */
+function stripTokens(body: string): string {
+  return body
+    .replace(/@\[([^\]]+)\]\(u:[^)]+\)/g, "@$1")
+    .replace(/#\[([^\]]+)\]\(t:[^)]+\)/g, "#$1");
+}
+
+async function notifyMentions(body: string, senderId: string, senderName: string) {
+  const ids = [...new Set(Array.from(body.matchAll(/\(u:([^)]+)\)/g), (m) => m[1]))]
+    .filter((id) => id !== senderId && !isOnline(id));
+  if (ids.length === 0) return;
+  const rows = await db
+    .select({ email: user.email })
+    .from(user)
+    .where(inArray(user.id, ids));
+  const emails = rows.map((r) => r.email).filter((e): e is string => Boolean(e));
+  if (emails.length === 0) return;
+  await sendMail({
+    to: emails,
+    subject: `${senderName} menyebutmu di Chat Tim`,
+    html: chatMentionEmail({
+      fromName: senderName,
+      snippet: stripTokens(body),
+      url: `${env.APP_URL}/`,
+    }),
+  });
 }

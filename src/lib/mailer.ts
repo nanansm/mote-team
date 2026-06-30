@@ -49,6 +49,26 @@ function shell(title: string, body: string): string {
   </div>`;
 }
 
+function escapeHtml(s: string): string {
+  return s.replace(
+    /[&<>"]/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!,
+  );
+}
+
+export function chatMentionEmail(p: {
+  fromName: string;
+  snippet: string;
+  url: string;
+}): string {
+  return shell(
+    "Kamu disebut di Chat Tim",
+    `<p style="font-size:14px"><b>${escapeHtml(p.fromName)}</b> menyebutmu di chat tim:</p>
+     <p style="font-size:14px;border-left:3px solid ${BRAND};padding-left:12px;color:#374151;white-space:pre-wrap">${escapeHtml(p.snippet)}</p>
+     <p style="margin-top:20px"><a href="${p.url}" style="background:${BRAND};color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600">Buka Mote Team</a></p>`,
+  );
+}
+
 function row(label: string, value: string): string {
   return `<tr><td style="padding:4px 12px 4px 0;color:#6b7280;font-size:13px">${label}</td><td style="padding:4px 0;font-size:13px;font-weight:600">${value}</td></tr>`;
 }
