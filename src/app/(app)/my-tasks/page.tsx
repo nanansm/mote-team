@@ -53,6 +53,7 @@ export default async function MyTasksPage() {
         linkIg: task.linkIg,
         linkTiktok: task.linkTiktok,
         mediaUrl: task.mediaUrl,
+        sortOrder: task.sortOrder,
       })
       .from(taskAssignee)
       .innerJoin(task, eq(task.id, taskAssignee.taskId))
@@ -109,6 +110,7 @@ export default async function MyTasksPage() {
     linkIg: t.linkIg,
     linkTiktok: t.linkTiktok,
     mediaUrl: t.mediaUrl,
+    sortOrder: t.sortOrder,
     assignees: byTask.get(t.id) ?? [],
   }));
 

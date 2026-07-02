@@ -1,0 +1,1 @@
+ALTER TABLE "moteteam"."task" ADD COLUMN IF NOT EXISTS "sort_order" integer DEFAULT 0 NOT NULL;

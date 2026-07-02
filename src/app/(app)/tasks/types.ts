@@ -19,6 +19,7 @@ export type TaskRow = {
   linkIg: string | null;
   linkTiktok: string | null;
   mediaUrl: string | null;
+  sortOrder: number;
   assignees: Assignee[];
 };
 

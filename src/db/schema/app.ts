@@ -132,6 +132,9 @@ export const task = moteteam.table("task", {
   }),
   dueDate: date("due_date"),
   postingDate: date("posting_date"),
+  // Manual drag-to-reorder position within a brand (Notion-style list). Lower =
+  // higher in the list; ties fall back to posting date. Additive, default 0.
+  sortOrder: integer("sort_order").default(0).notNull(),
   typeContent: typeContent("type_content"),
   caption: text("caption"),
   // Full task brief / page body from Notion (slide scripts, references, notes).

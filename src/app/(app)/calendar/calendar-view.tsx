@@ -2,7 +2,9 @@
 
 import { ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { toast } from "sonner";
+import { updateTaskDate } from "@/app/(app)/tasks/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -75,6 +77,24 @@ export function CalendarView({
   const router = useRouter();
   const [open, setOpen] = useState<CalendarTask | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>(ALL);
+  // ponytail: native DnD reschedule — drag a task onto a day → updateTaskDate.
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overDate, setOverDate] = useState<string | null>(null);
+  const [, startDrag] = useTransition();
+
+  function dropOn(dateStr: string) {
+    const id = dragId;
+    setDragId(null);
+    setOverDate(null);
+    if (!id) return;
+    const t = tasks.find((x) => x.id === id);
+    if (!t || t.postingDate === dateStr) return;
+    startDrag(async () => {
+      const r = await updateTaskDate(id, "postingDate", dateStr);
+      if (r.ok) router.refresh();
+      else toast.error(r.error);
+    });
+  }
 
   const [y, m] = month.split("-").map(Number);
   const daysInMonth = new Date(y, m, 0).getDate();
@@ -264,9 +284,16 @@ export function CalendarView({
             return (
               <div
                 key={i}
+                onDragOver={(e) => {
+                  if (!dragId || !ymd) return;
+                  e.preventDefault();
+                  setOverDate(ymd);
+                }}
+                onDragLeave={() => setOverDate((d) => (d === ymd ? null : d))}
+                onDrop={() => ymd && dropOn(ymd)}
                 className={`min-h-[92px] border-b border-r p-1.5 last:border-r-0 [&:nth-child(7n)]:border-r-0 ${
                   day == null ? "bg-muted/20" : isNat ? "bg-red-50/40 dark:bg-red-400/5" : ""
-                }`}
+                } ${overDate && overDate === ymd ? "bg-primary/5 ring-2 ring-inset ring-primary/50" : ""}`}
               >
                 {day != null && (
                   <>
@@ -300,8 +327,19 @@ export function CalendarView({
                           <button
                             key={t.id}
                             type="button"
+                            draggable
+                            onDragStart={(e) => {
+                              setDragId(t.id);
+                              e.dataTransfer.effectAllowed = "move";
+                            }}
+                            onDragEnd={() => {
+                              setDragId(null);
+                              setOverDate(null);
+                            }}
                             onClick={() => setOpen(t)}
-                            className="flex w-full items-center gap-1 rounded px-1 py-0.5 text-left text-[11px] hover:bg-muted"
+                            className={`flex w-full cursor-grab items-center gap-1 rounded px-1 py-0.5 text-left text-[11px] hover:bg-muted active:cursor-grabbing ${
+                              dragId === t.id ? "opacity-50" : ""
+                            }`}
                             title={t.title}
                           >
                             <span className={`size-1.5 shrink-0 rounded-full ${st?.dot ?? "bg-zinc-400"}`} />

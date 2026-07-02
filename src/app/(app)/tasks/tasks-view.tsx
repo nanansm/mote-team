@@ -8,6 +8,7 @@ import {
   Columns3,
   CornerDownRight,
   Eye,
+  GripVertical,
   LayoutList,
   MoreHorizontal,
   Pencil,
@@ -54,7 +55,7 @@ import {
 } from "@/lib/task-meta";
 import { PageHeader } from "@/components/page-header";
 import { jakartaParts } from "@/lib/tz";
-import { deleteTask, updateTaskDate, updateTaskStatus } from "./actions";
+import { deleteTask, reorderTasks, updateTaskDate, updateTaskStatus } from "./actions";
 import { TaskFormDialog } from "./task-form-dialog";
 import { TaskDetailSheet } from "./task-detail-sheet";
 import { TasksBoard } from "./tasks-board";
@@ -344,6 +345,7 @@ export function TasksView({
       .sort(
         (a, b) =>
           a.clientName.localeCompare(b.clientName) ||
+          a.sortOrder - b.sortOrder ||
           dateKey(a).localeCompare(dateKey(b)),
       );
     const out: { task: TaskRow; depth: number; firstOfBrand: boolean }[] = [];
@@ -361,6 +363,34 @@ export function TasksView({
     }
     return out;
   }, [filtered]);
+
+  // Drag-to-reorder table rows within a brand (Notion-style). Only root rows
+  // are draggable (via the grip); sub-tasks stay pinned under their parent.
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
+
+  function handleReorderDrop(targetId: string) {
+    const id = dragId;
+    setDragId(null);
+    setOverId(null);
+    if (!id || id === targetId) return;
+    const src = tasks.find((t) => t.id === id);
+    const tgt = tasks.find((t) => t.id === targetId);
+    if (!src || !tgt || src.clientId !== tgt.clientId) return;
+    const brandRoots = ordered
+      .filter((o) => o.depth === 0 && o.task.clientId === src.clientId)
+      .map((o) => o.task.id);
+    const from = brandRoots.indexOf(id);
+    const to = brandRoots.indexOf(targetId);
+    if (from < 0 || to < 0) return;
+    brandRoots.splice(from, 1);
+    brandRoots.splice(to, 0, id);
+    startTransition(async () => {
+      const r = await reorderTasks(brandRoots);
+      if (r.ok) router.refresh();
+      else toast.error(r.error);
+    });
+  }
 
   function openCreate() {
     setEditing(null);
@@ -516,13 +546,20 @@ export function TasksView({
         </div>
       </div>
 
-      {view === "board" && <TasksBoard tasks={scoped} onOpen={openDetail} />}
+      {view === "board" && (
+        <TasksBoard
+          tasks={scoped}
+          onOpen={openDetail}
+          onChanged={() => router.refresh()}
+        />
+      )}
       {view === "calendar" && (
         <TasksCalendar
           tasks={scoped}
           month={monthFilter === ALL ? currentMonth : monthFilter}
           onMonthChange={setMonthFilter}
           onOpen={openDetail}
+          onChanged={() => router.refresh()}
         />
       )}
       {view === "client" && (
@@ -581,7 +618,19 @@ export function TasksView({
               ordered.map(({ task: t, depth, firstOfBrand }) => (
                 <TableRow
                   key={t.id}
-                  className={cn(firstOfBrand && "border-t-2 border-t-border")}
+                  onDragOver={(e) => {
+                    if (!dragId || depth > 0) return;
+                    const src = tasks.find((x) => x.id === dragId);
+                    if (!src || src.clientId !== t.clientId) return;
+                    e.preventDefault();
+                    setOverId(t.id);
+                  }}
+                  onDrop={() => depth === 0 && handleReorderDrop(t.id)}
+                  className={cn(
+                    firstOfBrand && "border-t-2 border-t-border",
+                    dragId === t.id && "opacity-50",
+                    overId === t.id && "outline outline-2 -outline-offset-2 outline-primary/50",
+                  )}
                 >
                   <TableCell
                     className="overflow-hidden"
@@ -593,6 +642,24 @@ export function TasksView({
                         depth > 0 && "pl-5 text-muted-foreground",
                       )}
                     >
+                      {depth === 0 && (
+                        <span
+                          draggable
+                          onDragStart={(e) => {
+                            setDragId(t.id);
+                            e.dataTransfer.effectAllowed = "move";
+                          }}
+                          onDragEnd={() => {
+                            setDragId(null);
+                            setOverId(null);
+                          }}
+                          className="shrink-0 cursor-grab text-muted-foreground/40 hover:text-muted-foreground active:cursor-grabbing"
+                          title="Geser untuk atur urutan"
+                          aria-label="Geser untuk atur urutan"
+                        >
+                          <GripVertical className="size-3.5" />
+                        </span>
+                      )}
                       {depth > 0 && (
                         <CornerDownRight className="size-3.5 shrink-0 text-muted-foreground/60" />
                       )}

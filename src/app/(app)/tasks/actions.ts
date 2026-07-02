@@ -262,6 +262,21 @@ export async function updateTaskDate(
   return { ok: true };
 }
 
+// Persist a drag-to-reorder within a brand: write sortOrder = position for each
+// id, in the given order. Ties on sortOrder still fall back to posting date.
+export async function reorderTasks(ids: string[]): Promise<ActionResult> {
+  await requireSession();
+  if (!Array.isArray(ids) || ids.some((id) => !z.uuid().safeParse(id).success))
+    return { ok: false, error: "Urutan tidak valid" };
+  await db.transaction(async (tx) => {
+    for (let i = 0; i < ids.length; i++) {
+      await tx.update(task).set({ sortOrder: i }).where(eq(task.id, ids[i]));
+    }
+  });
+  revalidatePath("/tasks");
+  return { ok: true };
+}
+
 export async function deleteTask(id: string): Promise<ActionResult> {
   await requireSession();
   await db.delete(task).where(eq(task.id, id));

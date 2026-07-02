@@ -134,6 +134,13 @@
       "when": 1782155507046,
       "tag": "0018_client_color",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1782980428829,
+      "tag": "0019_task_sort_order",
+      "breakpoints": true
     }
   ]
 }

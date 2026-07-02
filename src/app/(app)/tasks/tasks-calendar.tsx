@@ -1,10 +1,13 @@
 "use client";
 
+import { useState, useTransition } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { TASK_STATUS_MAP, type TaskStatus } from "@/lib/task-meta";
 import { jakartaParts, ymdJakarta } from "@/lib/tz";
 import { cn } from "@/lib/utils";
+import { updateTaskDate } from "./actions";
 import type { TaskRow } from "./types";
 
 const DOW = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
@@ -27,13 +30,35 @@ export function TasksCalendar({
   month,
   onMonthChange,
   onOpen,
+  onChanged,
 }: {
   tasks: TaskRow[];
   /** Displayed month "YYYY-MM" — driven by the toolbar month filter. */
   month: string;
   onMonthChange: (m: string) => void;
   onOpen: (t: TaskRow) => void;
+  onChanged: () => void;
 }) {
+  // ponytail: native DnD — drag a task onto a day cell to reschedule its
+  // posting date. Same pattern as the board.
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overDate, setOverDate] = useState<string | null>(null);
+  const [, start] = useTransition();
+
+  function drop(dateStr: string) {
+    const id = dragId;
+    setDragId(null);
+    setOverDate(null);
+    if (!id) return;
+    const t = tasks.find((x) => x.id === id);
+    if (!t || t.postingDate === dateStr) return;
+    start(async () => {
+      const r = await updateTaskDate(id, "postingDate", dateStr);
+      if (r.ok) onChanged();
+      else toast.error(r.error);
+    });
+  }
+
   const now = new Date();
   const [cy, cm1] = month.split("-").map(Number);
   const cursor = { y: cy, m: cm1 - 1 };
@@ -101,9 +126,19 @@ export function TasksCalendar({
             return (
               <div
                 key={i}
+                onDragOver={(e) => {
+                  if (!dragId) return;
+                  e.preventDefault();
+                  setOverDate(dateStr);
+                }}
+                onDragLeave={() =>
+                  setOverDate((d) => (d === dateStr ? null : d))
+                }
+                onDrop={() => drop(dateStr)}
                 className={cn(
                   "min-h-24 space-y-1 border-b border-r p-1.5",
                   isToday && "bg-primary/5",
+                  overDate === dateStr && "ring-2 ring-primary/50 ring-inset bg-primary/5",
                 )}
               >
                 <span
@@ -120,8 +155,20 @@ export function TasksCalendar({
                   return (
                     <button
                       key={t.id}
+                      draggable
+                      onDragStart={(e) => {
+                        setDragId(t.id);
+                        e.dataTransfer.effectAllowed = "move";
+                      }}
+                      onDragEnd={() => {
+                        setDragId(null);
+                        setOverDate(null);
+                      }}
                       onClick={() => onOpen(t)}
-                      className="flex w-full items-center gap-1 rounded px-1 py-0.5 text-left text-[11px] hover:bg-accent"
+                      className={cn(
+                        "flex w-full cursor-grab items-center gap-1 rounded px-1 py-0.5 text-left text-[11px] hover:bg-accent active:cursor-grabbing",
+                        dragId === t.id && "opacity-50",
+                      )}
                       title={t.title}
                     >
                       <span className={cn("size-1.5 shrink-0 rounded-full", meta.dot)} />

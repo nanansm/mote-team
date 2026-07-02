@@ -1,7 +1,10 @@
 "use client";
 
-import { TASK_STATUSES } from "@/lib/task-meta";
+import { useState, useTransition } from "react";
+import { toast } from "sonner";
+import { TASK_STATUSES, type TaskStatus } from "@/lib/task-meta";
 import { cn } from "@/lib/utils";
+import { updateTaskStatus } from "./actions";
 import type { TaskRow } from "./types";
 
 function fmt(v: string | null): string {
@@ -15,10 +18,33 @@ function fmt(v: string | null): string {
 export function TasksBoard({
   tasks,
   onOpen,
+  onChanged,
 }: {
   tasks: TaskRow[];
   onOpen: (t: TaskRow) => void;
+  onChanged: () => void;
 }) {
+  // ponytail: native HTML5 drag-and-drop, no dnd-kit. dragId in state; column
+  // is the drop target → updateTaskStatus. Skipped: reorder-within-column
+  // (board has no manual order), add when asked.
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overCol, setOverCol] = useState<string | null>(null);
+  const [, start] = useTransition();
+
+  function drop(status: TaskStatus) {
+    const id = dragId;
+    setDragId(null);
+    setOverCol(null);
+    if (!id) return;
+    const t = tasks.find((x) => x.id === id);
+    if (!t || t.status === status) return;
+    start(async () => {
+      const r = await updateTaskStatus(id, status);
+      if (r.ok) onChanged();
+      else toast.error(r.error);
+    });
+  }
+
   return (
     <div className="flex gap-3 overflow-x-auto pb-2">
       {TASK_STATUSES.map((s) => {
@@ -34,7 +60,19 @@ export function TasksBoard({
                 {col.length}
               </span>
             </div>
-            <div className="flex-1 space-y-2 rounded-xl bg-muted/40 p-2">
+            <div
+              onDragOver={(e) => {
+                if (!dragId) return;
+                e.preventDefault();
+                setOverCol(s.value);
+              }}
+              onDragLeave={() => setOverCol((c) => (c === s.value ? null : c))}
+              onDrop={() => drop(s.value as TaskStatus)}
+              className={cn(
+                "flex-1 space-y-2 rounded-xl bg-muted/40 p-2 transition-colors",
+                overCol === s.value && "ring-2 ring-primary/50 ring-inset bg-primary/5",
+              )}
+            >
               {col.length === 0 ? (
                 <p className="px-2 py-6 text-center text-xs text-muted-foreground">
                   —
@@ -43,8 +81,20 @@ export function TasksBoard({
                 col.map((t) => (
                   <button
                     key={t.id}
+                    draggable
+                    onDragStart={(e) => {
+                      setDragId(t.id);
+                      e.dataTransfer.effectAllowed = "move";
+                    }}
+                    onDragEnd={() => {
+                      setDragId(null);
+                      setOverCol(null);
+                    }}
                     onClick={() => onOpen(t)}
-                    className="hover-lift w-full rounded-lg border bg-card p-3 text-left shadow-xs hover:shadow-card"
+                    className={cn(
+                      "hover-lift w-full cursor-grab rounded-lg border bg-card p-3 text-left shadow-xs hover:shadow-card active:cursor-grabbing",
+                      dragId === t.id && "opacity-50",
+                    )}
                   >
                     <p className="line-clamp-2 text-sm font-medium">{t.title}</p>
                     <p className="mt-1 truncate text-xs text-muted-foreground">
