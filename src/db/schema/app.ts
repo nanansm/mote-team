@@ -69,12 +69,21 @@ export const client = moteteam.table("client", {
   status: clientStatus("status").notNull().default("active"),
   contractEnd: date("contract_end"),
   logoUrl: text("logo_url"),
+  // Brand accent color (hex) shown in the task list. Null → auto-derived from id.
+  color: text("color"),
   // Windsor.ai account names (per platform) for pulling organic performance.
   windsorAccountId: text("windsor_account_id"), // Instagram account_name
   windsorTiktokId: text("windsor_tiktok_id"), // TikTok account_name
   windsorGmbId: text("windsor_gmb_id"), // Google My Business account_name (Maps)
   // Meta Ads account id (without act_ prefix) for paid performance via Graph API.
   metaAdAccountId: text("meta_ad_account_id"),
+  // Direct-API mapping (replaces Windsor): IG Business user id (Meta Graph),
+  // Repliz account _id (TikTok), GMB location resource ("locations/{id}").
+  igUserId: text("ig_user_id"),
+  replizAccountId: text("repliz_account_id"),
+  gmbLocationId: text("gmb_location_id"),
+  // TikTok absolute followers (Repliz has no total count) — manual, occasional.
+  tiktokFollowers: integer("tiktok_followers"),
   // Free-form notes/links for the team (briefs, drive links, brand guides).
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),

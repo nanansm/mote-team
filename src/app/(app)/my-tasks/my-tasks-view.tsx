@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { CalendarClock, CheckCircle2 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { TaskStatusSelect } from "@/components/task-status-select";
@@ -11,7 +10,8 @@ import { isDone } from "@/lib/task-meta";
 import { todayJakarta, ymdOffset } from "@/lib/tz";
 import { cn } from "@/lib/utils";
 import { TaskDetailSheet } from "../tasks/task-detail-sheet";
-import type { TaskRow } from "../tasks/types";
+import { TaskFormDialog } from "../tasks/task-form-dialog";
+import type { ClientOption, MemberOption, TaskRow } from "../tasks/types";
 
 function Row({
   t,
@@ -78,14 +78,19 @@ function Section({
 
 export function MyTasksView({
   tasks,
+  clients,
+  members,
   firstName,
 }: {
   tasks: TaskRow[];
+  clients: ClientOption[];
+  members: MemberOption[];
   firstName: string;
 }) {
-  const router = useRouter();
   const [detail, setDetail] = useState<TaskRow | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [editing, setEditing] = useState<TaskRow | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
 
   function openDetail(t: TaskRow) {
     setDetail(t);
@@ -162,10 +167,19 @@ export function MyTasksView({
         open={detailOpen}
         onOpenChange={setDetailOpen}
         onEdit={(t) => {
-          // Editing lives on the Tasks page (full form). Deep-link there.
           setDetailOpen(false);
-          router.push(`/tasks?task=${t.id}`);
+          setEditing(t);
+          setFormOpen(true);
         }}
+      />
+
+      <TaskFormDialog
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        task={editing}
+        clients={clients}
+        members={members}
+        allTasks={tasks}
       />
     </div>
   );

@@ -34,29 +34,42 @@ export default async function MyTasksPage() {
     );
   }
 
-  const taskRows = await db
-    .select({
-      id: task.id,
-      title: task.title,
-      status: task.status,
-      clientId: task.clientId,
-      clientName: client.name,
-      parentId: task.parentId,
-      dueDate: task.dueDate,
-      postingDate: task.postingDate,
-      typeContent: task.typeContent,
-      caption: task.caption,
-      linkMateri: task.linkMateri,
-      linkOutput: task.linkOutput,
-      linkIg: task.linkIg,
-      linkTiktok: task.linkTiktok,
-      mediaUrl: task.mediaUrl,
-    })
-    .from(taskAssignee)
-    .innerJoin(task, eq(task.id, taskAssignee.taskId))
-    .leftJoin(client, eq(client.id, task.clientId))
-    .where(eq(taskAssignee.teamMemberId, member.id))
-    .orderBy(asc(task.dueDate));
+  const [taskRows, clients, members] = await Promise.all([
+    db
+      .select({
+        id: task.id,
+        title: task.title,
+        status: task.status,
+        clientId: task.clientId,
+        clientName: client.name,
+        brandColor: client.color,
+        parentId: task.parentId,
+        dueDate: task.dueDate,
+        postingDate: task.postingDate,
+        typeContent: task.typeContent,
+        caption: task.caption,
+        linkMateri: task.linkMateri,
+        linkOutput: task.linkOutput,
+        linkIg: task.linkIg,
+        linkTiktok: task.linkTiktok,
+        mediaUrl: task.mediaUrl,
+      })
+      .from(taskAssignee)
+      .innerJoin(task, eq(task.id, taskAssignee.taskId))
+      .leftJoin(client, eq(client.id, task.clientId))
+      .where(eq(taskAssignee.teamMemberId, member.id))
+      .orderBy(asc(task.dueDate)),
+    db
+      .select({ id: client.id, name: client.name })
+      .from(client)
+      .where(eq(client.status, "active"))
+      .orderBy(asc(client.name)),
+    db
+      .select({ id: teamMember.id, name: teamMember.name })
+      .from(teamMember)
+      .where(eq(teamMember.active, true))
+      .orderBy(asc(teamMember.name)),
+  ]);
 
   // All assignees for these tasks (a task may have several) — for the detail sheet.
   const ids = taskRows.map((t) => t.id);
@@ -85,6 +98,7 @@ export default async function MyTasksPage() {
     status: t.status as TaskStatus,
     clientId: t.clientId,
     clientName: t.clientName ?? "—",
+    brandColor: t.brandColor,
     parentId: t.parentId,
     dueDate: t.dueDate,
     postingDate: t.postingDate,
@@ -98,5 +112,12 @@ export default async function MyTasksPage() {
     assignees: byTask.get(t.id) ?? [],
   }));
 
-  return <MyTasksView tasks={tasks} firstName={member.name.split(" ")[0]} />;
+  return (
+    <MyTasksView
+      tasks={tasks}
+      clients={clients}
+      members={members}
+      firstName={member.name.split(" ")[0]}
+    />
+  );
 }

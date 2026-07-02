@@ -30,8 +30,18 @@ export const env = {
   // socks5h://127.0.0.1:40000. Empty = direct (likely blocked, scrape returns null).
   SCRAPE_PROXY_URL: process.env.SCRAPE_PROXY_URL ?? "",
 
-  // Meta (Facebook) Graph API access token for paid ads insights.
+  // Meta (Facebook) Graph API access token — paid ads AND IG organic insights
+  // (token scope includes instagram_manage_insights).
   META_ACCESS_TOKEN: process.env.META_ACCESS_TOKEN ?? "",
+
+  // Repliz API (TikTok organic insight) — HTTP Basic (access:secret). Gold plan.
+  REPLIZ_ACCESS_KEY: process.env.REPLIZ_ACCESS_KEY ?? "",
+  REPLIZ_SECRET_KEY: process.env.REPLIZ_SECRET_KEY ?? "",
+
+  // Google Business Profile API (GMB insight) — OAuth refresh-token flow.
+  GMB_CLIENT_ID: process.env.GMB_CLIENT_ID ?? "",
+  GMB_CLIENT_SECRET: process.env.GMB_CLIENT_SECRET ?? "",
+  GMB_REFRESH_TOKEN: process.env.GMB_REFRESH_TOKEN ?? "",
 
   // SMTP for email notifications (task assignment + deadline reminders).
   SMTP_HOST: process.env.SMTP_HOST ?? "",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Building2,
@@ -46,6 +46,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { clientColor } from "@/lib/client-color";
 import {
   TASK_STATUSES,
   TASK_STATUS_MAP,
@@ -53,7 +54,7 @@ import {
 } from "@/lib/task-meta";
 import { PageHeader } from "@/components/page-header";
 import { jakartaParts } from "@/lib/tz";
-import { deleteTask, updateTaskStatus } from "./actions";
+import { deleteTask, updateTaskDate, updateTaskStatus } from "./actions";
 import { TaskFormDialog } from "./task-form-dialog";
 import { TaskDetailSheet } from "./task-detail-sheet";
 import { TasksBoard } from "./tasks-board";
@@ -64,6 +65,17 @@ import type { ClientOption, MemberOption, TaskRow } from "./types";
 type View = "table" | "board" | "calendar" | "client";
 
 const ALL = "all";
+
+// ponytail: hand-rolled Notion-style resizable columns (colgroup + drag),
+// no @tanstack/react-table dep. Widths persist per-browser in localStorage.
+const COLS = [
+  "task", "klien", "status", "assignee", "due", "posting", "actions",
+] as const;
+type ColKey = (typeof COLS)[number];
+const DEFAULT_W: Record<ColKey, number> = {
+  task: 320, klien: 160, status: 150, assignee: 180, due: 140, posting: 140, actions: 88,
+};
+const COLW_KEY = "mote.tasks.colwidths";
 
 const ID_MONTHS = [
   "Januari", "Februari", "Maret", "April", "Mei", "Juni",
@@ -92,14 +104,6 @@ function monthOptions(current: string, span = 6): string[] {
     out.push(`${y}-${String(m).padStart(2, "0")}`);
   }
   return out;
-}
-
-function formatDate(value: string | null): string {
-  if (!value) return "—";
-  const d = new Date(value);
-  return Number.isNaN(d.getTime())
-    ? value
-    : d.toLocaleDateString("id-ID", { day: "numeric", month: "short" });
 }
 
 function StatusSelect({
@@ -142,6 +146,45 @@ function StatusSelect({
         ))}
       </SelectContent>
     </Select>
+  );
+}
+
+// Inline-editable date cell — reschedule right in the table (Notion-style),
+// no need to open the Edit form. Saves on change; reverts on error.
+function InlineDate({
+  taskId,
+  field,
+  value,
+  onSaved,
+}: {
+  taskId: string;
+  field: "dueDate" | "postingDate";
+  value: string | null;
+  onSaved: () => void;
+}) {
+  const [val, setVal] = useState(value ?? "");
+  const [pending, start] = useTransition();
+  useEffect(() => setVal(value ?? ""), [value]);
+  return (
+    <input
+      type="date"
+      value={val}
+      disabled={pending}
+      onChange={(e) => {
+        const v = e.target.value;
+        setVal(v);
+        start(async () => {
+          const r = await updateTaskDate(taskId, field, v || null);
+          if (!r.ok) {
+            toast.error(r.error);
+            setVal(value ?? "");
+          } else {
+            onSaved();
+          }
+        });
+      }}
+      className="w-full rounded bg-transparent px-1 py-0.5 text-xs text-muted-foreground outline-none hover:bg-muted focus:bg-muted focus:text-foreground [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-50"
+    />
   );
 }
 
@@ -190,6 +233,48 @@ export function TasksView({
   const [view, setView] = useState<View>("table");
   const [detail, setDetail] = useState<TaskRow | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+
+  // Resizable table columns.
+  const [colW, setColW] = useState<Record<ColKey, number>>(DEFAULT_W);
+  const colWRef = useRef(colW);
+  colWRef.current = colW;
+  const dragRef = useRef<{ key: ColKey; startX: number; startW: number } | null>(null);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(COLW_KEY);
+      if (raw) setColW((p) => ({ ...p, ...JSON.parse(raw) }));
+    } catch {}
+  }, []);
+
+  const onDrag = useCallback((e: MouseEvent) => {
+    const d = dragRef.current;
+    if (!d) return;
+    const w = Math.max(60, d.startW + (e.clientX - d.startX));
+    setColW((p) => ({ ...p, [d.key]: w }));
+  }, []);
+  const endDrag = useCallback(() => {
+    window.removeEventListener("mousemove", onDrag);
+    window.removeEventListener("mouseup", endDrag);
+    dragRef.current = null;
+    document.body.style.userSelect = "";
+    setColW((p) => {
+      try {
+        localStorage.setItem(COLW_KEY, JSON.stringify(p));
+      } catch {}
+      return p;
+    });
+  }, [onDrag]);
+  const startDrag = useCallback(
+    (key: ColKey, e: React.MouseEvent) => {
+      e.preventDefault();
+      dragRef.current = { key, startX: e.clientX, startW: colWRef.current[key] };
+      document.body.style.userSelect = "none";
+      window.addEventListener("mousemove", onDrag);
+      window.addEventListener("mouseup", endDrag);
+    },
+    [onDrag, endDrag],
+  );
 
   // Deep-link support: ?client=, ?view=, ?new=1 (e.g. from Clients / command palette).
   const searchParams = useSearchParams();
@@ -248,17 +333,30 @@ export function TasksView({
 
   const filtered = scoped;
 
-  // Build a 2-level ordering: roots (in view), each followed by its sub-tasks.
+  // Bundle by brand (client), then by posting date within each brand; sub-tasks
+  // stay directly under their parent. `firstOfBrand` flags each brand's first
+  // row so the table can draw a divider between brands.
   const ordered = useMemo(() => {
     const visibleIds = new Set(filtered.map((t) => t.id));
-    const roots = filtered.filter(
-      (t) => !t.parentId || !visibleIds.has(t.parentId),
-    );
-    const out: { task: TaskRow; depth: number }[] = [];
+    const dateKey = (t: TaskRow) => t.postingDate ?? t.dueDate ?? "9999-12-31";
+    const roots = filtered
+      .filter((t) => !t.parentId || !visibleIds.has(t.parentId))
+      .sort(
+        (a, b) =>
+          a.clientName.localeCompare(b.clientName) ||
+          dateKey(a).localeCompare(dateKey(b)),
+      );
+    const out: { task: TaskRow; depth: number; firstOfBrand: boolean }[] = [];
+    let prevBrand: string | null = null;
     for (const root of roots) {
-      out.push({ task: root, depth: 0 });
-      for (const child of filtered.filter((t) => t.parentId === root.id)) {
-        out.push({ task: child, depth: 1 });
+      const firstOfBrand = root.clientName !== prevBrand;
+      prevBrand = root.clientName;
+      out.push({ task: root, depth: 0, firstOfBrand });
+      const children = filtered
+        .filter((t) => t.parentId === root.id)
+        .sort((a, b) => dateKey(a).localeCompare(dateKey(b)));
+      for (const child of children) {
+        out.push({ task: child, depth: 1, firstOfBrand: false });
       }
     }
     return out;
@@ -433,16 +531,38 @@ export function TasksView({
 
       {view === "table" && (
       <div className="overflow-hidden rounded-2xl border bg-card shadow-card">
-        <Table>
+        <Table
+          className="table-fixed"
+          style={{ width: COLS.reduce((s, k) => s + colW[k], 0), minWidth: "100%" }}
+        >
+          <colgroup>
+            {COLS.map((k) => (
+              <col key={k} style={{ width: colW[k] }} />
+            ))}
+          </colgroup>
           <TableHeader>
             <TableRow className="bg-muted/50">
-              <TableHead>Task</TableHead>
-              <TableHead>Klien</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Assignee</TableHead>
-              <TableHead>Due</TableHead>
-              <TableHead>Posting</TableHead>
-              <TableHead className="w-20" />
+              {(
+                [
+                  ["task", "Task"],
+                  ["klien", "Klien"],
+                  ["status", "Status"],
+                  ["assignee", "Assignee"],
+                  ["due", "Due"],
+                  ["posting", "Posting"],
+                  ["actions", ""],
+                ] as [ColKey, string][]
+              ).map(([key, label]) => (
+                <TableHead key={key} className="relative">
+                  {label}
+                  {key !== "actions" && (
+                    <span
+                      onMouseDown={(e) => startDrag(key, e)}
+                      className="absolute right-0 top-0 z-10 h-full w-1.5 cursor-col-resize touch-none select-none hover:bg-primary/40"
+                    />
+                  )}
+                </TableHead>
+              ))}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -458,9 +578,15 @@ export function TasksView({
                 </TableCell>
               </TableRow>
             ) : (
-              ordered.map(({ task: t, depth }) => (
-                <TableRow key={t.id}>
-                  <TableCell className="max-w-xs">
+              ordered.map(({ task: t, depth, firstOfBrand }) => (
+                <TableRow
+                  key={t.id}
+                  className={cn(firstOfBrand && "border-t-2 border-t-border")}
+                >
+                  <TableCell
+                    className="overflow-hidden"
+                    style={{ borderLeft: `3px solid ${clientColor(t.clientId, t.brandColor)}` }}
+                  >
                     <div
                       className={cn(
                         "flex items-center gap-1.5",
@@ -481,15 +607,21 @@ export function TasksView({
                       <button
                         type="button"
                         onClick={() => openDetail(t)}
-                        className="truncate text-left font-medium hover:text-primary hover:underline"
+                        className="truncate text-left text-xs hover:text-primary hover:underline"
                         title={t.title}
                       >
                         {t.title}
                       </button>
                     </div>
                   </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {t.clientName}
+                  <TableCell className="overflow-hidden text-muted-foreground">
+                    <span className="flex items-center gap-1.5">
+                      <span
+                        className="size-2 shrink-0 rounded-full"
+                        style={{ backgroundColor: clientColor(t.clientId, t.brandColor) }}
+                      />
+                      <span className="truncate">{t.clientName}</span>
+                    </span>
                   </TableCell>
                   <TableCell>
                     <StatusSelect
@@ -501,11 +633,21 @@ export function TasksView({
                   <TableCell>
                     <AssigneeChips names={t.assignees.map((a) => a.name)} />
                   </TableCell>
-                  <TableCell className="whitespace-nowrap text-muted-foreground">
-                    {formatDate(t.dueDate)}
+                  <TableCell className="whitespace-nowrap">
+                    <InlineDate
+                      taskId={t.id}
+                      field="dueDate"
+                      value={t.dueDate}
+                      onSaved={() => router.refresh()}
+                    />
                   </TableCell>
-                  <TableCell className="whitespace-nowrap text-muted-foreground">
-                    {formatDate(t.postingDate)}
+                  <TableCell className="whitespace-nowrap">
+                    <InlineDate
+                      taskId={t.id}
+                      field="postingDate"
+                      value={t.postingDate}
+                      onSaved={() => router.refresh()}
+                    />
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-0.5">

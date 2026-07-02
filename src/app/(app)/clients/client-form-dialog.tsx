@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { ClientRow, ClientStatus } from "@/lib/types";
+import { clientColor } from "@/lib/client-color";
 import {
   createClient,
   getConnectorOptions,
@@ -123,9 +124,11 @@ export function ClientFormDialog({ open, onOpenChange, client }: Props) {
   const [status, setStatus] = useState<ClientStatus>("active");
   const [contractEnd, setContractEnd] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
-  const [windsorAccountId, setWindsorAccountId] = useState("");
-  const [windsorTiktokId, setWindsorTiktokId] = useState("");
-  const [windsorGmbId, setWindsorGmbId] = useState("");
+  const [color, setColor] = useState("");
+  const [igUserId, setIgUserId] = useState("");
+  const [replizAccountId, setReplizAccountId] = useState("");
+  const [gmbLocationId, setGmbLocationId] = useState("");
+  const [tiktokFollowers, setTiktokFollowers] = useState("");
   const [metaAdAccountId, setMetaAdAccountId] = useState("");
   const [notes, setNotes] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -140,9 +143,13 @@ export function ClientFormDialog({ open, onOpenChange, client }: Props) {
     setStatus(client?.status ?? "active");
     setContractEnd(client?.contractEnd ?? "");
     setLogoUrl(client?.logoUrl ?? "");
-    setWindsorAccountId(client?.windsorAccountId ?? "");
-    setWindsorTiktokId(client?.windsorTiktokId ?? "");
-    setWindsorGmbId(client?.windsorGmbId ?? "");
+    setColor(client?.color ?? "");
+    setIgUserId(client?.igUserId ?? "");
+    setReplizAccountId(client?.replizAccountId ?? "");
+    setGmbLocationId(client?.gmbLocationId ?? "");
+    setTiktokFollowers(
+      client?.tiktokFollowers != null ? String(client.tiktokFollowers) : "",
+    );
     setMetaAdAccountId(client?.metaAdAccountId ?? "");
     setNotes(client?.notes ?? "");
   }, [open, client]);
@@ -195,9 +202,11 @@ export function ClientFormDialog({ open, onOpenChange, client }: Props) {
       status,
       contractEnd,
       logoUrl,
-      windsorAccountId,
-      windsorTiktokId,
-      windsorGmbId,
+      color,
+      igUserId,
+      replizAccountId,
+      gmbLocationId,
+      tiktokFollowers: tiktokFollowers ? Number(tiktokFollowers) : null,
       metaAdAccountId,
       notes,
     };
@@ -328,23 +337,62 @@ export function ClientFormDialog({ open, onOpenChange, client }: Props) {
               </p>
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="brand-color">Warna brand (di list task)</Label>
+              <div className="flex items-center gap-3">
+                <span
+                  className="size-9 shrink-0 rounded-md border"
+                  style={{ backgroundColor: clientColor(client?.id, color) }}
+                />
+                <Input
+                  id="brand-color"
+                  type="color"
+                  value={clientColor(client?.id, color)}
+                  onChange={(e) => setColor(e.target.value)}
+                  className="h-9 w-16 cursor-pointer p-1"
+                />
+                {color ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="text-muted-foreground"
+                    onClick={() => setColor("")}
+                  >
+                    <X className="size-4" />
+                    Otomatis
+                  </Button>
+                ) : (
+                  <span className="text-xs text-muted-foreground">
+                    Otomatis (dari nama). Pilih warna untuk mengunci.
+                  </span>
+                )}
+              </div>
+            </div>
+
             <div className="grid gap-4 sm:grid-cols-2">
               <ConnectorSelect
-                id="windsor-ig"
-                label="Windsor IG account"
-                value={windsorAccountId}
-                onChange={setWindsorAccountId}
-                options={options.ig.map((v) => ({ value: v, label: v }))}
+                id="ig-account"
+                label="Instagram account"
+                value={igUserId}
+                onChange={setIgUserId}
+                options={options.ig.map((a) => ({
+                  value: a.id,
+                  label: a.username,
+                }))}
                 loading={loadingOptions}
                 emptyHint="Belum ada akun IG"
                 placeholder="Pilih akun IG"
               />
               <ConnectorSelect
-                id="windsor-tt"
-                label="Windsor TikTok account"
-                value={windsorTiktokId}
-                onChange={setWindsorTiktokId}
-                options={options.tiktok.map((v) => ({ value: v, label: v }))}
+                id="tiktok-account"
+                label="TikTok account (Repliz)"
+                value={replizAccountId}
+                onChange={setReplizAccountId}
+                options={options.tiktok.map((a) => ({
+                  value: a.id,
+                  label: a.username,
+                }))}
                 loading={loadingOptions}
                 emptyHint="Belum ada akun TikTok"
                 placeholder="Pilih akun TikTok"
@@ -365,19 +413,34 @@ export function ClientFormDialog({ open, onOpenChange, client }: Props) {
                 placeholder="Pilih Ad Account"
               />
               <ConnectorSelect
-                id="windsor-gmb"
+                id="gmb-location"
                 label="Google Maps (GMB)"
-                value={windsorGmbId}
-                onChange={setWindsorGmbId}
-                options={options.gmb.map((v) => ({ value: v, label: v }))}
+                value={gmbLocationId}
+                onChange={setGmbLocationId}
+                options={options.gmb.map((l) => ({
+                  value: l.id,
+                  label: l.title,
+                }))}
                 loading={loadingOptions}
-                emptyHint="Belum ada akun GMB"
+                emptyHint="Belum ada lokasi GMB"
                 placeholder="Pilih lokasi GMB"
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="tiktok-followers">TikTok followers (manual)</Label>
+              <Input
+                id="tiktok-followers"
+                type="number"
+                min={0}
+                value={tiktokFollowers}
+                onChange={(e) => setTiktokFollowers(e.target.value)}
+                placeholder="mis. 5432"
+              />
+            </div>
             <p className="-mt-2 text-xs text-muted-foreground">
-              Daftar diambil langsung dari akun yang sudah terhubung di
-              Windsor/Meta. Untuk menarik performa di menu Performance.
+              Akun IG (Meta), TikTok (Repliz) &amp; GMB (Google) diambil langsung
+              dari yang sudah terhubung. Followers TikTok diisi manual (Repliz
+              tak menyediakan angka total).
             </p>
 
             <div className="space-y-2">

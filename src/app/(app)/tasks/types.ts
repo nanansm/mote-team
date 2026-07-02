@@ -8,6 +8,7 @@ export type TaskRow = {
   status: TaskStatus;
   clientId: string;
   clientName: string;
+  brandColor: string | null;
   parentId: string | null;
   dueDate: string | null;
   postingDate: string | null;

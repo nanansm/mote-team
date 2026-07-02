@@ -6,7 +6,9 @@ import { z } from "zod";
 import { db } from "@/db";
 import { client } from "@/db/schema";
 import { requireSession } from "@/lib/session";
-import { listWindsorAccounts } from "@/lib/windsor";
+import { listIgAccounts, type IgAccount } from "@/lib/instagram";
+import { listReplizTiktokAccounts, type ReplizAccount } from "@/lib/repliz";
+import { listGmbLocations, type GmbLocation } from "@/lib/gmb";
 import { listMetaAdAccounts, type MetaAdAccount } from "@/lib/meta";
 
 const clientInput = z.object({
@@ -14,9 +16,16 @@ const clientInput = z.object({
   status: z.enum(["active", "on_hold", "offboarding"]),
   contractEnd: z.string().trim().nullish(),
   logoUrl: z.string().trim().nullish(),
-  windsorAccountId: z.string().trim().nullish(),
-  windsorTiktokId: z.string().trim().nullish(),
-  windsorGmbId: z.string().trim().nullish(),
+  color: z
+    .string()
+    .trim()
+    .regex(/^#[0-9a-fA-F]{6}$/, "Warna harus kode hex #rrggbb")
+    .nullish()
+    .or(z.literal("")),
+  igUserId: z.string().trim().nullish(),
+  replizAccountId: z.string().trim().nullish(),
+  gmbLocationId: z.string().trim().nullish(),
+  tiktokFollowers: z.coerce.number().int().min(0).nullable().optional(),
   metaAdAccountId: z.string().trim().nullish(),
   notes: z.string().trim().max(10000, "Catatan terlalu panjang").nullish(),
 });
@@ -29,23 +38,27 @@ function firstError(error: z.ZodError): string {
 }
 
 function toValues(input: ClientInput) {
+  // Legacy windsor_* columns are intentionally NOT set here (migrated off
+  // Windsor → direct APIs); existing values are left untouched.
   return {
     name: input.name,
     status: input.status,
     contractEnd: input.contractEnd ? input.contractEnd : null,
     logoUrl: input.logoUrl ? input.logoUrl : null,
-    windsorAccountId: input.windsorAccountId ? input.windsorAccountId : null,
-    windsorTiktokId: input.windsorTiktokId ? input.windsorTiktokId : null,
-    windsorGmbId: input.windsorGmbId ? input.windsorGmbId : null,
+    color: input.color ? input.color : null,
+    igUserId: input.igUserId ? input.igUserId : null,
+    replizAccountId: input.replizAccountId ? input.replizAccountId : null,
+    gmbLocationId: input.gmbLocationId ? input.gmbLocationId : null,
+    tiktokFollowers: input.tiktokFollowers ?? null,
     metaAdAccountId: input.metaAdAccountId ? input.metaAdAccountId : null,
     notes: input.notes ? input.notes : null,
   };
 }
 
 export type ConnectorOptions = {
-  ig: string[];
-  tiktok: string[];
-  gmb: string[];
+  ig: IgAccount[];
+  tiktok: ReplizAccount[];
+  gmb: GmbLocation[];
   meta: MetaAdAccount[];
 };
 
@@ -56,11 +69,13 @@ export type ConnectorOptions = {
  */
 export async function getConnectorOptions(): Promise<ConnectorOptions> {
   await requireSession();
-  const [windsor, meta] = await Promise.all([
-    listWindsorAccounts(),
+  const [ig, tiktok, gmb, meta] = await Promise.all([
+    listIgAccounts(),
+    listReplizTiktokAccounts(),
+    listGmbLocations(),
     listMetaAdAccounts(),
   ]);
-  return { ig: windsor.ig, tiktok: windsor.tiktok, gmb: windsor.gmb, meta };
+  return { ig, tiktok, gmb, meta };
 }
 
 export async function createClient(raw: ClientInput): Promise<ActionResult> {

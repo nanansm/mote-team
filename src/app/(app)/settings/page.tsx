@@ -1,12 +1,19 @@
 import { PageHeader } from "@/components/page-header";
 import {
+  getGmbClientId,
+  getGmbClientSecret,
+  getGmbRefreshToken,
   getMetaToken,
+  getReplizAccessKey,
+  getReplizSecret,
   getSettings,
   getSmtpConfig,
   getWaConfig,
   getWaTemplates,
   getWindsorKey,
+  isGmbEnabled,
   isMetaEnabled,
+  isReplizEnabled,
   isSmtpConfigured,
   isWaEnabled,
   isWindsorEnabled,
@@ -25,6 +32,13 @@ export default async function SettingsPage() {
     windsorEnabled,
     metaToken,
     metaEnabled,
+    replizAccess,
+    replizSecret,
+    replizEnabled,
+    gmbClientId,
+    gmbSecret,
+    gmbRefresh,
+    gmbEnabled,
     waEnabled,
     waCfg,
     waTpl,
@@ -35,6 +49,13 @@ export default async function SettingsPage() {
     isWindsorEnabled(),
     getMetaToken(),
     isMetaEnabled(),
+    getReplizAccessKey(),
+    getReplizSecret(),
+    isReplizEnabled(),
+    getGmbClientId(),
+    getGmbClientSecret(),
+    getGmbRefreshToken(),
+    isGmbEnabled(),
     isWaEnabled(),
     getWaConfig(),
     getWaTemplates(),
@@ -53,6 +74,17 @@ export default async function SettingsPage() {
       <SettingsView
         windsor={{ enabled: windsorEnabled, hasKey: Boolean(windsorKey) }}
         meta={{ enabled: metaEnabled, hasKey: Boolean(metaToken) }}
+        repliz={{
+          enabled: replizEnabled,
+          hasAccess: Boolean(replizAccess),
+          hasSecret: Boolean(replizSecret),
+        }}
+        gmb={{
+          enabled: gmbEnabled,
+          hasClientId: Boolean(gmbClientId),
+          hasSecret: Boolean(gmbSecret),
+          hasRefresh: Boolean(gmbRefresh),
+        }}
         wa={{
           enabled: waEnabled,
           baseUrl: waCfg.baseUrl,

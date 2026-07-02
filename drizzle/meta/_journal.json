@@ -120,6 +120,20 @@
       "when": 1781955507046,
       "tag": "0016_chat_message",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1782055507046,
+      "tag": "0017_direct_api_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1782155507046,
+      "tag": "0018_client_color",
+      "breakpoints": true
     }
   ]
 }

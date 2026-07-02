@@ -14,6 +14,7 @@ import {
 } from "@/db/schema";
 import { env } from "@/lib/env";
 import { sendMail, taskAssignedEmail } from "@/lib/mailer";
+import { notifyMentions } from "@/lib/mentions";
 import { sendWhatsApp, taskAssignedWa } from "@/lib/whatsapp";
 import { TASK_STATUS_MAP, type TaskStatus } from "@/lib/task-meta";
 import { requireSession } from "@/lib/session";
@@ -239,6 +240,28 @@ export async function updateTaskStatus(
   return { ok: true };
 }
 
+// Inline date edit from the task table (reschedule without opening the form).
+export async function updateTaskDate(
+  id: string,
+  field: "dueDate" | "postingDate",
+  value: string | null,
+): Promise<ActionResult> {
+  await requireSession();
+  if (!z.uuid().safeParse(id).success)
+    return { ok: false, error: "Task tidak valid" };
+  if (field !== "dueDate" && field !== "postingDate")
+    return { ok: false, error: "Kolom tidak valid" };
+  const v = value?.trim() || null;
+  if (v && !/^\d{4}-\d{2}-\d{2}$/.test(v))
+    return { ok: false, error: "Tanggal tidak valid" };
+  await db
+    .update(task)
+    .set({ [field]: v, updatedAt: new Date() })
+    .where(eq(task.id, id));
+  revalidatePath("/tasks");
+  return { ok: true };
+}
+
 export async function deleteTask(id: string): Promise<ActionResult> {
   await requireSession();
   await db.delete(task).where(eq(task.id, id));
@@ -321,6 +344,14 @@ export async function addComment(
   await db
     .insert(taskComment)
     .values({ taskId, body: trimmed, authorUserId: session.user.id });
+  // Email anyone @-mentioned who is offline (same rule as team chat).
+  await notifyMentions({
+    body: trimmed,
+    senderId: session.user.id,
+    senderName: session.user.name,
+    subject: `${session.user.name} menyebutmu di komentar task`,
+    url: `${env.APP_URL}/tasks?task=${taskId}`,
+  }).catch((e) => console.error("[task] comment mention email failed:", e));
   revalidatePath("/tasks");
   return { ok: true };
 }

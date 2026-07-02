@@ -2,7 +2,15 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { BarChart3, Camera, Database, Mail, MessageCircle } from "lucide-react";
+import {
+  BarChart3,
+  Camera,
+  Database,
+  Mail,
+  MapPin,
+  MessageCircle,
+  Music2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -116,6 +124,114 @@ function IntegrationCard({
         <Button onClick={saveToken} disabled={pending || !token.trim()}>
           Simpan token
         </Button>
+      </div>
+
+      {note && (
+        <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-400/10 dark:text-amber-300">
+          {note}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** Toggle + N secret fields (blank keeps existing). For Repliz / GMB creds. */
+function MultiSecretCard({
+  icon: Icon,
+  title,
+  desc,
+  enabled,
+  configured,
+  enableKey,
+  fields,
+  note,
+}: {
+  icon: typeof Camera;
+  title: string;
+  desc: string;
+  enabled: boolean;
+  configured: boolean;
+  enableKey: string;
+  fields: { key: string; label: string; has: boolean }[];
+  note?: string;
+}) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [on, setOn] = useState(enabled);
+  const [vals, setVals] = useState<Record<string, string>>({});
+
+  function toggle(next: boolean) {
+    setOn(next);
+    start(async () => {
+      const r = await saveSettings({ [enableKey]: String(next) });
+      if (r.ok) {
+        toast.success(next ? `${title} diaktifkan` : `${title} dimatikan`);
+        router.refresh();
+      } else {
+        setOn(!next);
+        toast.error(r.error);
+      }
+    });
+  }
+
+  function save() {
+    const payload: Record<string, string> = {};
+    for (const f of fields) {
+      const v = vals[f.key]?.trim();
+      if (v) payload[f.key] = v;
+    }
+    if (Object.keys(payload).length === 0) return;
+    start(async () => {
+      const r = await saveSettings(payload);
+      if (r.ok) {
+        toast.success("Tersimpan");
+        setVals({});
+        router.refresh();
+      } else {
+        toast.error(r.error);
+      }
+    });
+  }
+
+  return (
+    <div className="rounded-xl border bg-card p-5 shadow-xs">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+            <Icon className="size-[18px]" />
+          </span>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="font-medium">{title}</h3>
+              <StatusBadge on={configured} />
+            </div>
+            <p className="mt-0.5 text-sm text-muted-foreground">{desc}</p>
+          </div>
+        </div>
+        <Switch checked={on} onCheckedChange={toggle} disabled={pending} />
+      </div>
+
+      <div className="mt-4 space-y-3">
+        {fields.map((f) => (
+          <div key={f.key} className="space-y-1.5">
+            <Label className="text-xs">{f.label}</Label>
+            <Input
+              type="password"
+              value={vals[f.key] ?? ""}
+              onChange={(e) =>
+                setVals((v) => ({ ...v, [f.key]: e.target.value }))
+              }
+              placeholder={
+                f.has ? "•••••••• (tersimpan — isi untuk ganti)" : "Belum diisi"
+              }
+            />
+          </div>
+        ))}
+        <div className="flex justify-end">
+          <Button onClick={save} disabled={pending}>
+            Simpan
+          </Button>
+        </div>
       </div>
 
       {note && (
@@ -486,12 +602,21 @@ function SmtpCard({ smtp }: { smtp: SmtpProps }) {
 export function SettingsView({
   windsor,
   meta,
+  repliz,
+  gmb,
   wa,
   r2Configured,
   smtp,
 }: {
   windsor: { enabled: boolean; hasKey: boolean };
   meta: { enabled: boolean; hasKey: boolean };
+  repliz: { enabled: boolean; hasAccess: boolean; hasSecret: boolean };
+  gmb: {
+    enabled: boolean;
+    hasClientId: boolean;
+    hasSecret: boolean;
+    hasRefresh: boolean;
+  };
   wa: {
     enabled: boolean;
     baseUrl: string;
@@ -507,8 +632,8 @@ export function SettingsView({
     <div className="space-y-4">
       <IntegrationCard
         icon={BarChart3}
-        title="Windsor.ai"
-        desc="Performa organic Instagram & TikTok per klien."
+        title="Windsor.ai (legacy)"
+        desc="Lama — digantikan IG (Meta), TikTok (Repliz) & GMB (Google) langsung. Aman dimatikan."
         enabled={windsor.enabled}
         hasKey={windsor.hasKey}
         enableKey="windsor_enabled"
@@ -518,14 +643,43 @@ export function SettingsView({
 
       <IntegrationCard
         icon={Camera}
-        title="Meta Ads"
-        desc="Performa paid ads (spend, reach, leads) via Graph API."
+        title="Meta Ads + Instagram organic"
+        desc="Paid ads (spend, reach, leads) DAN IG organic (reach, views, followers) via Graph API — satu token."
         enabled={meta.enabled}
         hasKey={meta.hasKey}
         enableKey="meta_enabled"
         tokenKey="meta_access_token"
         tokenLabel="Meta Access Token"
-        note="Meta punya rate limit. Kalau usage developer mendekati 100%, matikan toggle ini sementara — semua call Meta berhenti & usage berhenti naik. Limit reset otomatis tiap ~1 jam."
+        note="Token wajib punya scope instagram_manage_insights agar IG organic tertarik. Meta punya rate limit — kalau usage mendekati 100%, matikan toggle ini sementara (reset ~1 jam)."
+      />
+
+      <MultiSecretCard
+        icon={Music2}
+        title="Repliz (TikTok organic)"
+        desc="Performa TikTok per video (reach, views, engagement) — butuh plan Gold."
+        enabled={repliz.enabled}
+        configured={repliz.hasAccess && repliz.hasSecret}
+        enableKey="repliz_enabled"
+        fields={[
+          { key: "repliz_access_key", label: "Access Key", has: repliz.hasAccess },
+          { key: "repliz_secret_key", label: "Secret Key", has: repliz.hasSecret },
+        ]}
+        note="Followers TikTok absolut diisi manual per klien (Repliz tak menyediakan angka total)."
+      />
+
+      <MultiSecretCard
+        icon={MapPin}
+        title="Google Business Profile (GMB)"
+        desc="Performa Maps per lokasi (impressions, calls, directions, reviews)."
+        enabled={gmb.enabled}
+        configured={gmb.hasClientId && gmb.hasSecret && gmb.hasRefresh}
+        enableKey="gmb_enabled"
+        fields={[
+          { key: "gmb_client_id", label: "Client ID", has: gmb.hasClientId },
+          { key: "gmb_client_secret", label: "Client Secret", has: gmb.hasSecret },
+          { key: "gmb_refresh_token", label: "Refresh Token", has: gmb.hasRefresh },
+        ]}
+        note="Isi 3 nilai dari OAuth Google. Data baru tertarik setelah akses Business Profile API di-approve Google."
       />
 
       <WhatsAppCard
@@ -558,8 +712,9 @@ export function SettingsView({
       </div>
 
       <p className="text-xs text-muted-foreground">
-        R2 diatur lewat environment variable saat deploy. Windsor, Meta, WhatsApp
-        & SMTP bisa diubah langsung di sini (tersimpan di database).
+        R2 diatur lewat environment variable saat deploy. Meta, Repliz, GMB,
+        WhatsApp & SMTP bisa diubah langsung di sini (tersimpan terenkripsi di
+        database).
       </p>
     </div>
   );

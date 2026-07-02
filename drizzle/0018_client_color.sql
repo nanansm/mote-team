@@ -1,0 +1,1 @@
+ALTER TABLE "moteteam"."client" ADD COLUMN IF NOT EXISTS "color" text;

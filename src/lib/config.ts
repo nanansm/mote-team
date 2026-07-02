@@ -10,6 +10,9 @@ export const SECRET_SETTING_KEYS = new Set([
   "meta_access_token",
   "wa_api_key",
   "smtp_password",
+  "repliz_secret_key",
+  "gmb_client_secret",
+  "gmb_refresh_token",
 ]);
 
 /**
@@ -50,6 +53,24 @@ export const isWindsorEnabled = () => flag("windsor_enabled", true);
 
 export const getMetaToken = () => value("meta_access_token", env.META_ACCESS_TOKEN);
 export const isMetaEnabled = () => flag("meta_enabled", true);
+
+// Instagram organic — reuses the Meta token (scope instagram_manage_insights).
+export const isIgEnabled = () => flag("ig_enabled", true);
+
+// Repliz (TikTok organic) — HTTP Basic access:secret.
+export const getReplizAccessKey = () =>
+  value("repliz_access_key", env.REPLIZ_ACCESS_KEY);
+export const getReplizSecret = () =>
+  value("repliz_secret_key", env.REPLIZ_SECRET_KEY);
+export const isReplizEnabled = () => flag("repliz_enabled", true);
+
+// Google Business Profile (GMB) — OAuth refresh-token flow.
+export const getGmbClientId = () => value("gmb_client_id", env.GMB_CLIENT_ID);
+export const getGmbClientSecret = () =>
+  value("gmb_client_secret", env.GMB_CLIENT_SECRET);
+export const getGmbRefreshToken = () =>
+  value("gmb_refresh_token", env.GMB_REFRESH_TOKEN);
+export const isGmbEnabled = () => flag("gmb_enabled", true);
 
 // WhatsApp (Evolution API) — default off until configured.
 export const isWaEnabled = () => flag("wa_enabled", false);
@@ -127,4 +148,12 @@ export const SETTING_KEYS = {
   smtpPassword: "smtp_password",
   smtpFromName: "smtp_from_name",
   smtpFromEmail: "smtp_from_email",
+  igEnabled: "ig_enabled",
+  replizAccessKey: "repliz_access_key",
+  replizSecretKey: "repliz_secret_key",
+  replizEnabled: "repliz_enabled",
+  gmbClientId: "gmb_client_id",
+  gmbClientSecret: "gmb_client_secret",
+  gmbRefreshToken: "gmb_refresh_token",
+  gmbEnabled: "gmb_enabled",
 } as const;
