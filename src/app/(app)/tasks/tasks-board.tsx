@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { TASK_STATUSES, type TaskStatus } from "@/lib/task-meta";
+import { TASK_STATUSES, TYPE_CONTENT_MAP, type TaskStatus } from "@/lib/task-meta";
 import { cn } from "@/lib/utils";
 import { updateTaskStatus } from "./actions";
 import type { TaskRow } from "./types";
@@ -97,9 +97,21 @@ export function TasksBoard({
                     )}
                   >
                     <p className="line-clamp-2 text-sm font-medium">{t.title}</p>
-                    <p className="mt-1 truncate text-xs text-muted-foreground">
-                      {t.clientName}
-                    </p>
+                    <div className="mt-1 flex items-center gap-1.5">
+                      <p className="truncate text-xs text-muted-foreground">
+                        {t.clientName}
+                      </p>
+                      {t.typeContent && TYPE_CONTENT_MAP[t.typeContent] && (
+                        <span
+                          className={cn(
+                            "shrink-0 rounded px-1.5 py-0.5 text-[9px] font-medium",
+                            TYPE_CONTENT_MAP[t.typeContent].badge,
+                          )}
+                        >
+                          {TYPE_CONTENT_MAP[t.typeContent].label}
+                        </span>
+                      )}
+                    </div>
                     <div className="mt-2 flex items-center justify-between gap-2">
                       <div className="flex flex-wrap gap-1">
                         {t.assignees.slice(0, 2).map((a) => (

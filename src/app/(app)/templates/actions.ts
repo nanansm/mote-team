@@ -6,13 +6,14 @@ import { z } from "zod";
 import { db } from "@/db";
 import { task, taskTemplate } from "@/db/schema";
 import { requireSession } from "@/lib/session";
+import type { TypeContent } from "@/lib/task-meta";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
 export type TemplateRow = {
   id: string;
   title: string;
-  typeContent: "carousel" | "reels" | null;
+  typeContent: TypeContent | null;
   dayOfMonth: number | null;
   caption: string | null;
 };
@@ -32,14 +33,16 @@ export async function listTemplates(clientId: string): Promise<TemplateRow[]> {
     .orderBy(asc(taskTemplate.dayOfMonth), asc(taskTemplate.sort));
   return rows.map((r) => ({
     ...r,
-    typeContent: r.typeContent as "carousel" | "reels" | null,
+    typeContent: r.typeContent as TypeContent | null,
   }));
 }
 
 const templateInput = z.object({
   clientId: z.uuid(),
   title: z.string().trim().min(1, "Judul wajib diisi").max(200, "Judul terlalu panjang"),
-  typeContent: z.enum(["carousel", "reels"]).nullish(),
+  typeContent: z
+    .enum(["ig_post", "ig_slide", "reels", "ig_story", "tiktok", "document", "other"])
+    .nullish(),
   dayOfMonth: z.coerce.number().int().min(1).max(31).nullish(),
   caption: z.string().trim().max(4000, "Caption terlalu panjang").nullish(),
 });

@@ -24,7 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { TYPE_CONTENTS } from "@/lib/task-meta";
+import { TYPE_CONTENTS, type TypeContent } from "@/lib/task-meta";
 import {
   createTemplate,
   deleteTemplate,
@@ -68,7 +68,7 @@ export function TemplatesView({
       const r = await createTemplate({
         clientId: selectedClientId,
         title,
-        typeContent: type === NONE ? null : (type as "carousel" | "reels"),
+        typeContent: type === NONE ? null : (type as TypeContent),
         dayOfMonth: day ? Number(day) : null,
         caption,
       });

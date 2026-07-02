@@ -30,7 +30,17 @@ export const taskStatus = moteteam.enum("task_status", [
   "published",
 ]);
 
-export const typeContent = moteteam.enum("type_content", ["carousel", "reels"]);
+// Content-type taxonomy (#12). Legacy "carousel" was remapped to "ig_slide" and
+// removed from the enum by migration 0020 (transaction-safe rebuild).
+export const typeContent = moteteam.enum("type_content", [
+  "ig_post",
+  "ig_slide",
+  "reels",
+  "ig_story",
+  "tiktok",
+  "document",
+  "other",
+]);
 
 // Client-facing content approval state (shared via public token link).
 export const approvalStatus = moteteam.enum("approval_status", [

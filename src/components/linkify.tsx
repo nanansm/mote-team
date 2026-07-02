@@ -2,8 +2,34 @@ import { Fragment } from "react";
 
 const URL_RE = /(https?:\/\/[^\s]+)/g;
 const IS_URL = /^https?:\/\//;
-// Trailing punctuation that almost always belongs to prose, not the URL.
-const TRAILING = /[.,;:!?'")\]}]+$/;
+
+/**
+ * Split trailing prose punctuation off a URL. Closing brackets are kept when
+ * they balance an opener inside the URL (e.g. Wikipedia "..._(TV_series)"),
+ * so only genuinely dangling punctuation is trimmed. Shared by Linkify and
+ * MentionText so both linkify URLs identically.
+ */
+export function trimUrl(raw: string): { url: string; trail: string } {
+  let end = raw.length;
+  const balanced = (s: string, open: string, close: string) =>
+    s.split(open).length - 1 >= s.split(close).length - 1;
+  while (end > 0) {
+    const ch = raw[end - 1];
+    if (".,;:!?'\"".includes(ch)) {
+      end--;
+      continue;
+    }
+    if (ch === ")" || ch === "]" || ch === "}") {
+      const open = ch === ")" ? "(" : ch === "]" ? "[" : "{";
+      if (!balanced(raw.slice(0, end), open, ch)) {
+        end--;
+        continue;
+      }
+    }
+    break;
+  }
+  return { url: raw.slice(0, end), trail: raw.slice(end) };
+}
 
 /**
  * Render free-form text with clickable links. Plain text otherwise.
@@ -15,10 +41,7 @@ export function Linkify({ text, className }: { text: string; className?: string 
     <p className={`whitespace-pre-wrap break-words ${className ?? ""}`}>
       {parts.map((part, i) => {
         if (!IS_URL.test(part)) return <Fragment key={i}>{part}</Fragment>;
-        // Split off trailing punctuation so e.g. "(https://x/a)." links to
-        // "https://x/a" and renders ")." as plain text.
-        const trail = part.match(TRAILING)?.[0] ?? "";
-        const url = trail ? part.slice(0, -trail.length) : part;
+        const { url, trail } = trimUrl(part);
         return (
           <Fragment key={i}>
             <a

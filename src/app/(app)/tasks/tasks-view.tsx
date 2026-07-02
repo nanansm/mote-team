@@ -6,13 +6,17 @@ import {
   Building2,
   CalendarDays,
   Columns3,
+  ArrowUpDown,
   CornerDownRight,
   Eye,
   GripVertical,
   LayoutList,
+  Link2,
+  MessageCircle,
   MoreHorizontal,
   Pencil,
   Plus,
+  Share2,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -51,6 +55,8 @@ import { clientColor } from "@/lib/client-color";
 import {
   TASK_STATUSES,
   TASK_STATUS_MAP,
+  TYPE_CONTENTS,
+  TYPE_CONTENT_MAP,
   type TaskStatus,
 } from "@/lib/task-meta";
 import { PageHeader } from "@/components/page-header";
@@ -58,6 +64,7 @@ import { jakartaParts } from "@/lib/tz";
 import { deleteTask, reorderTasks, updateTaskDate, updateTaskStatus } from "./actions";
 import { TaskFormDialog } from "./task-form-dialog";
 import { TaskDetailSheet } from "./task-detail-sheet";
+import { taskShareText } from "./share";
 import { TasksBoard } from "./tasks-board";
 import { TasksCalendar } from "./tasks-calendar";
 import { TasksByClient } from "./tasks-by-client";
@@ -66,6 +73,42 @@ import type { ClientOption, MemberOption, TaskRow } from "./types";
 type View = "table" | "board" | "calendar" | "client";
 
 const ALL = "all";
+
+// #13 Sort. "manual" = drag order (#9), only mode where the grip is active.
+type SortKey = "manual" | "posting" | "due" | "name" | "content";
+const SORTS: { value: SortKey; label: string }[] = [
+  { value: "manual", label: "Manual (drag)" },
+  { value: "posting", label: "Tanggal posting" },
+  { value: "due", label: "Due date" },
+  { value: "name", label: "Nama" },
+  { value: "content", label: "Per jenis konten" },
+];
+
+const TYPE_RANK = new Map(TYPE_CONTENTS.map((t, i) => [t.value, i]));
+const dateKey = (t: TaskRow) => t.postingDate ?? t.dueDate ?? "9999-12-31";
+const dueKey = (t: TaskRow) => t.dueDate ?? "9999-12-31";
+// Tasks without a type sort last.
+const typeRank = (t: TaskRow) =>
+  t.typeContent != null ? (TYPE_RANK.get(t.typeContent) ?? 98) : 99;
+
+/** Within-brand comparator for the chosen sort. */
+function makeCmp(sort: SortKey): (a: TaskRow, b: TaskRow) => number {
+  return (a, b) => {
+    switch (sort) {
+      case "posting":
+        return dateKey(a).localeCompare(dateKey(b)) || a.title.localeCompare(b.title);
+      case "due":
+        return dueKey(a).localeCompare(dueKey(b)) || a.title.localeCompare(b.title);
+      case "name":
+        return a.title.localeCompare(b.title);
+      case "content":
+        return typeRank(a) - typeRank(b) || dateKey(a).localeCompare(dateKey(b));
+      case "manual":
+      default:
+        return a.sortOrder - b.sortOrder || dateKey(a).localeCompare(dateKey(b));
+    }
+  };
+}
 
 // ponytail: hand-rolled Notion-style resizable columns (colgroup + drag),
 // no @tanstack/react-table dep. Widths persist per-browser in localStorage.
@@ -230,7 +273,9 @@ export function TasksView({
   const [clientFilter, setClientFilter] = useState(ALL);
   const [statusFilter, setStatusFilter] = useState<string>(ALL);
   const [assigneeFilter, setAssigneeFilter] = useState(ALL);
+  const [typeFilter, setTypeFilter] = useState<string>(ALL);
   const [monthFilter, setMonthFilter] = useState<string>(currentMonth);
+  const [sortKey, setSortKey] = useState<SortKey>("manual");
   const [view, setView] = useState<View>("table");
   const [detail, setDetail] = useState<TaskRow | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -301,7 +346,13 @@ export function TasksView({
         openedTaskRef.current = taskId;
       }
     }
-  }, [searchParams, tasks]);
+    // Strip one-shot filter params (client/view/new) from the URL after applying
+    // them, so a browser tab-restore reopens with clean "Semua" filters instead
+    // of re-pinning the last filtered view. Keep ?task= (handled on sheet close).
+    if (c || v || searchParams.get("new")) {
+      router.replace(taskId ? `/tasks?task=${taskId}` : "/tasks", { scroll: false });
+    }
+  }, [searchParams, tasks, router]);
 
   function openDetail(t: TaskRow) {
     setDetail(t);
@@ -317,7 +368,7 @@ export function TasksView({
     }
   }
 
-  // All views apply client + assignee + status filters.
+  // All views apply client + assignee + status + content-type filters.
   const scoped = useMemo(() => {
     return tasks.filter((t) => {
       if (clientFilter !== ALL && t.clientId !== clientFilter) return false;
@@ -327,42 +378,57 @@ export function TasksView({
       )
         return false;
       if (statusFilter !== ALL && t.status !== statusFilter) return false;
+      if (typeFilter !== ALL && t.typeContent !== typeFilter) return false;
       if (monthFilter !== ALL && taskMonth(t) !== monthFilter) return false;
       return true;
     });
-  }, [tasks, clientFilter, assigneeFilter, statusFilter, monthFilter]);
+  }, [tasks, clientFilter, assigneeFilter, statusFilter, typeFilter, monthFilter]);
 
   const filtered = scoped;
 
-  // Bundle by brand (client), then by posting date within each brand; sub-tasks
-  // stay directly under their parent. `firstOfBrand` flags each brand's first
-  // row so the table can draw a divider between brands.
+  // Bundle by brand (client), then by the chosen sort within each brand;
+  // sub-tasks stay directly under their parent. `firstOfBrand` draws a divider
+  // between brands; `firstOfType` draws one between content-type groups when
+  // sorting "Per jenis konten" (#12 View Per Content Per Brand).
   const ordered = useMemo(() => {
+    const cmp = makeCmp(sortKey);
     const visibleIds = new Set(filtered.map((t) => t.id));
-    const dateKey = (t: TaskRow) => t.postingDate ?? t.dueDate ?? "9999-12-31";
     const roots = filtered
       .filter((t) => !t.parentId || !visibleIds.has(t.parentId))
-      .sort(
-        (a, b) =>
-          a.clientName.localeCompare(b.clientName) ||
-          a.sortOrder - b.sortOrder ||
-          dateKey(a).localeCompare(dateKey(b)),
-      );
-    const out: { task: TaskRow; depth: number; firstOfBrand: boolean }[] = [];
+      .sort((a, b) => a.clientName.localeCompare(b.clientName) || cmp(a, b));
+    const out: {
+      task: TaskRow;
+      depth: number;
+      firstOfBrand: boolean;
+      firstOfType: boolean;
+    }[] = [];
     let prevBrand: string | null = null;
+    let prevType: TaskRow["typeContent"] | undefined;
     for (const root of roots) {
       const firstOfBrand = root.clientName !== prevBrand;
+      if (firstOfBrand) prevType = undefined;
+      const firstOfType =
+        sortKey === "content" && !firstOfBrand && root.typeContent !== prevType;
       prevBrand = root.clientName;
-      out.push({ task: root, depth: 0, firstOfBrand });
+      prevType = root.typeContent;
+      out.push({ task: root, depth: 0, firstOfBrand, firstOfType });
       const children = filtered
         .filter((t) => t.parentId === root.id)
-        .sort((a, b) => dateKey(a).localeCompare(dateKey(b)));
+        .sort(cmp);
       for (const child of children) {
-        out.push({ task: child, depth: 1, firstOfBrand: false });
+        out.push({ task: child, depth: 1, firstOfBrand: false, firstOfType: false });
       }
     }
     return out;
-  }, [filtered]);
+  }, [filtered, sortKey]);
+
+  // Board reuses the same sort (brand-grouped) so cards order consistently.
+  const boardTasks = useMemo(() => {
+    const cmp = makeCmp(sortKey);
+    return [...scoped].sort(
+      (a, b) => a.clientName.localeCompare(b.clientName) || cmp(a, b),
+    );
+  }, [scoped, sortKey]);
 
   // Drag-to-reorder table rows within a brand (Notion-style). Only root rows
   // are draggable (via the grip); sub-tasks stay pinned under their parent.
@@ -390,6 +456,22 @@ export function TasksView({
       if (r.ok) router.refresh();
       else toast.error(r.error);
     });
+  }
+
+  async function shareCopy(t: TaskRow) {
+    try {
+      await navigator.clipboard.writeText(taskShareText(t));
+      toast.success("Ringkasan task disalin");
+    } catch {
+      toast.error("Gagal menyalin");
+    }
+  }
+  function shareWhatsApp(t: TaskRow) {
+    window.open(
+      `https://wa.me/?text=${encodeURIComponent(taskShareText(t))}`,
+      "_blank",
+      "noopener,noreferrer",
+    );
   }
 
   function openCreate() {
@@ -497,6 +579,25 @@ export function TasksView({
             ))}
           </SelectContent>
         </Select>
+        <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v ?? ALL)}>
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="Jenis konten">
+              {(v) =>
+                v === ALL
+                  ? "Semua jenis"
+                  : (TYPE_CONTENT_MAP[v as string]?.label ?? "Jenis")
+              }
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>Semua jenis</SelectItem>
+            {TYPE_CONTENTS.map((t) => (
+              <SelectItem key={t.value} value={t.value}>
+                {t.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Select
           value={monthFilter}
           onValueChange={(v) => setMonthFilter(v ?? currentMonth)}
@@ -511,6 +612,21 @@ export function TasksView({
             {months.map((m) => (
               <SelectItem key={m} value={m}>
                 {monthLabel(m)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={sortKey} onValueChange={(v) => setSortKey((v as SortKey) ?? "manual")}>
+          <SelectTrigger className="w-44">
+            <ArrowUpDown className="size-3.5 text-muted-foreground" />
+            <SelectValue placeholder="Urutkan">
+              {(v) => SORTS.find((s) => s.value === v)?.label ?? "Urutkan"}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {SORTS.map((s) => (
+              <SelectItem key={s.value} value={s.value}>
+                {s.label}
               </SelectItem>
             ))}
           </SelectContent>
@@ -548,7 +664,7 @@ export function TasksView({
 
       {view === "board" && (
         <TasksBoard
-          tasks={scoped}
+          tasks={boardTasks}
           onOpen={openDetail}
           onChanged={() => router.refresh()}
         />
@@ -615,19 +731,22 @@ export function TasksView({
                 </TableCell>
               </TableRow>
             ) : (
-              ordered.map(({ task: t, depth, firstOfBrand }) => (
+              ordered.map(({ task: t, depth, firstOfBrand, firstOfType }) => (
                 <TableRow
                   key={t.id}
                   onDragOver={(e) => {
-                    if (!dragId || depth > 0) return;
+                    if (sortKey !== "manual" || !dragId || depth > 0) return;
                     const src = tasks.find((x) => x.id === dragId);
                     if (!src || src.clientId !== t.clientId) return;
                     e.preventDefault();
                     setOverId(t.id);
                   }}
-                  onDrop={() => depth === 0 && handleReorderDrop(t.id)}
+                  onDrop={() =>
+                    sortKey === "manual" && depth === 0 && handleReorderDrop(t.id)
+                  }
                   className={cn(
                     firstOfBrand && "border-t-2 border-t-border",
+                    firstOfType && "border-t border-dashed border-t-border",
                     dragId === t.id && "opacity-50",
                     overId === t.id && "outline outline-2 -outline-offset-2 outline-primary/50",
                   )}
@@ -642,7 +761,7 @@ export function TasksView({
                         depth > 0 && "pl-5 text-muted-foreground",
                       )}
                     >
-                      {depth === 0 && (
+                      {depth === 0 && sortKey === "manual" && (
                         <span
                           draggable
                           onDragStart={(e) => {
@@ -679,6 +798,29 @@ export function TasksView({
                       >
                         {t.title}
                       </button>
+                      {t.typeContent && TYPE_CONTENT_MAP[t.typeContent] && (
+                        <span
+                          className={cn(
+                            "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium",
+                            TYPE_CONTENT_MAP[t.typeContent].badge,
+                          )}
+                        >
+                          {TYPE_CONTENT_MAP[t.typeContent].label}
+                        </span>
+                      )}
+                      {t.linkMateri && (
+                        <a
+                          href={t.linkMateri}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="shrink-0 text-muted-foreground hover:text-primary"
+                          title="Buka link materi"
+                          aria-label="Buka link materi"
+                        >
+                          <Link2 className="size-3.5" />
+                        </a>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell className="overflow-hidden text-muted-foreground">
@@ -739,6 +881,14 @@ export function TasksView({
                         <DropdownMenuItem onClick={() => openEdit(t)}>
                           <Pencil className="size-4" />
                           Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => shareCopy(t)}>
+                          <Share2 className="size-4" />
+                          Bagikan (salin)
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => shareWhatsApp(t)}>
+                          <MessageCircle className="size-4" />
+                          Kirim ke WhatsApp
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           variant="destructive"

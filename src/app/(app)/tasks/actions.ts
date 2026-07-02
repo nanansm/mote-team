@@ -103,7 +103,9 @@ const taskInput = z.object({
   parentId: z.uuid().nullish(),
   dueDate: z.string().trim().nullish(),
   postingDate: z.string().trim().nullish(),
-  typeContent: z.enum(["carousel", "reels"]).nullish(),
+  typeContent: z
+    .enum(["ig_post", "ig_slide", "reels", "ig_story", "tiktok", "document", "other"])
+    .nullish(),
   caption: z.string().trim().nullish(),
   linkMateri: z.string().trim().nullish(),
   linkOutput: z.string().trim().nullish(),

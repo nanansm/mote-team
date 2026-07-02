@@ -113,12 +113,12 @@ const DATA: Record<string, Raw[]> = {
 };
 
 type Status = "not_started" | "in_progress" | "done" | "ready" | "scheduled" | "published";
-type TypeContent = "carousel" | "reels" | null;
+type TypeContent = "ig_slide" | "reels" | null;
 
 function inferType(title: string): TypeContent {
   const t = title.toLowerCase();
   if (/reels|video|dance|try-on|pegang|flat lay/.test(t)) return "reels";
-  if (/slide|carou|single|post|konten|poster/.test(t)) return "carousel";
+  if (/slide|carou|single|post|konten|poster/.test(t)) return "ig_slide";
   return null;
 }
 

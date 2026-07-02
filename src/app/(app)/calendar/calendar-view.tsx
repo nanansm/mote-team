@@ -22,7 +22,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Holiday } from "@/lib/holidays";
-import { TASK_STATUSES, TASK_STATUS_MAP, TYPE_CONTENTS } from "@/lib/task-meta";
+import {
+  TASK_STATUSES,
+  TASK_STATUS_MAP,
+  TYPE_CONTENTS,
+  TYPE_CONTENT_MAP,
+} from "@/lib/task-meta";
 import type { CalendarTask } from "./page";
 
 const ALL = "all";
@@ -77,6 +82,7 @@ export function CalendarView({
   const router = useRouter();
   const [open, setOpen] = useState<CalendarTask | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>(ALL);
+  const [typeFilter, setTypeFilter] = useState<string>(ALL);
   // ponytail: native DnD reschedule — drag a task onto a day → updateTaskDate.
   const [dragId, setDragId] = useState<string | null>(null);
   const [overDate, setOverDate] = useState<string | null>(null);
@@ -100,10 +106,11 @@ export function CalendarView({
   const daysInMonth = new Date(y, m, 0).getDate();
   const lead = firstWeekdayMon(y, m);
 
-  const shown =
-    statusFilter === ALL
-      ? tasks
-      : tasks.filter((t) => t.status === statusFilter);
+  const shown = tasks.filter(
+    (t) =>
+      (statusFilter === ALL || t.status === statusFilter) &&
+      (typeFilter === ALL || t.typeContent === typeFilter),
+  );
 
   // Bucket tasks by day-of-month.
   const byDay = new Map<number, CalendarTask[]>();
@@ -180,6 +187,25 @@ export function CalendarView({
               {TASK_STATUSES.map((s) => (
                 <SelectItem key={s.value} value={s.value}>
                   {s.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v ?? ALL)}>
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="Jenis konten">
+                {(v) =>
+                  v === ALL
+                    ? "Semua jenis"
+                    : (TYPE_CONTENT_MAP[v as string]?.label ?? "Jenis")
+                }
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>Semua jenis</SelectItem>
+              {TYPE_CONTENTS.map((t) => (
+                <SelectItem key={t.value} value={t.value}>
+                  {t.label}
                 </SelectItem>
               ))}
             </SelectContent>

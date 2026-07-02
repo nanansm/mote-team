@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { trimUrl } from "@/components/linkify";
 
 function escapeRe(s: string) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -27,6 +28,9 @@ export function MentionText({
   const parts = [
     String.raw`@\[[^\]]+\]\(u:[^)]+\)`,
     String.raw`#\[[^\]]+\]\(t:[^)]+\)`,
+    // Stop the URL at whitespace/end OR the start of a structured token, so an
+    // adjacent `#[..](t:id)` / `@[..](u:id)` with no space isn't swallowed.
+    String.raw`https?://[^\s]+?(?=$|\s|[@#]\[)`,
   ];
   if (present.length) parts.push(`@(?:${present.map(escapeRe).join("|")})`);
   const re = new RegExp(parts.join("|"), "g");
@@ -51,6 +55,20 @@ export function MentionText({
           #{s.slice(2, s.indexOf("]"))}
         </Link>,
       );
+    } else if (/^https?:\/\//.test(s)) {
+      const { url, trail } = trimUrl(s);
+      out.push(
+        <a
+          key={i++}
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={cn("underline underline-offset-2", mine ? "" : "text-primary")}
+        >
+          {url}
+        </a>,
+      );
+      if (trail) out.push(trail);
     } else {
       out.push(
         <span key={i++} className={hi}>
